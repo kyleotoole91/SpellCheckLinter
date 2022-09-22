@@ -6,6 +6,7 @@ program SpellCheckLinter;
 
 uses
   System.SysUtils,
+  DateUtils,
   uSpellChecker in '..\SpellChecker\uSpellChecker.pas',
   uConstants in '..\SpellChecker\uConstants.pas';
 
@@ -15,6 +16,7 @@ procedure RunSpellChecker;
     cSourceFilename=2;
     cExtFilter=3;
     cResursive=4;
+    cHalt=5;
   var
     a: integer;
     input: string;
@@ -31,12 +33,16 @@ procedure RunSpellChecker;
       spellChecker.Recursive := ParamStr(cResursive) <> '0';
       spellChecker.Run;
       Writeln(Format('Checked %d files', [spellChecker.FileCount]));
-      Writeln(Format('Error count %d', [spellChecker.Errors.Count]));
-      if spellChecker.Errors.Count > 0 then
+      if spellChecker.Errors.Count > 0 then begin
+        Writeln(Format('Error count %d', [spellChecker.Errors.Count]));
+        Writeln(Format('Errors found in %d seconds', [SecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
         Writeln('Errors:');
+      end else
+        Writeln('No errors found');
       for a := 0 to spellChecker.Errors.Count-1 do
         Writeln(spellChecker.Errors.Strings[a]);
-      Readln(input);
+      if ParamStr(cExtFilter) <> '0' then
+        Readln(input);
     finally
       spellChecker.Free;
     end;
