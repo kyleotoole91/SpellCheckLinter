@@ -1,0 +1,11 @@
+__history/
+LanguageFiles/
+*.dcu
+*.local
+*.~dsk
+*.dsk
+*.identcache
+*.exe
+*.rsm
+*.txt
+Win32/Debug/en_US.dic
