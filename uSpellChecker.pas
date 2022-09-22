@@ -4,9 +4,9 @@ interface
 
 uses
   System.SysUtils, System.IOUtils, System.Types, System.UITypes, System.Classes, System.Variants, Generics.Collections, DateUtils, uConstants, System.RegularExpressions;
-  
+
 type
-  TSpellChecker = class(TObject) 
+  TSpellChecker = class(TObject)
   strict private
     fWordCheckCount: uInt64;
     fIgnoreLines: TStringList;
@@ -29,6 +29,7 @@ type
     procedure LoadIgnoreFiles;
     procedure LoadLanguageDictionary;
     procedure SetLanguageFilename(const Value: string);
+    function IsNumeric(const AString: string): boolean;
     function PosOfOccurence(const AString: string; const AChar: string; AOccurencePos: integer=1): integer;
     function OccurrenceCount(const AString: string; const AChar: string): integer;
     function SpellCheckFile(const AFilename: string): boolean;
@@ -63,7 +64,7 @@ const
 
 constructor TSpellChecker.Create;
 begin
-  inherited;    
+  inherited;
   fWordsDict := TDictionary<string, string>.Create;
   fLanguageFile := TStringList.Create;
   fSourceFile := TStringList.Create;
@@ -91,6 +92,16 @@ begin
     fErrors.DisposeOf;
   finally
     inherited;
+  end;
+end;
+
+function TSpellChecker.IsNumeric(const AString: string): boolean;
+begin
+  result := True;
+  try
+    StrToInt64(AString);
+  except
+    result := false;
   end;
 end;
 
@@ -183,7 +194,8 @@ end;
 
 function TSpellChecker.SpelledCorrectly(const AWord: string): boolean;
 begin
-  result := (Trim(AWord) = '') or
+  result := (AWord = '') or
+            (IsNumeric(AWord)) or
             (fIgnoreWords.IndexOf(AWord) >= 0);
   if not result then begin
     result := fWordsDict.ContainsKey(LowerCase(AWord));
@@ -233,7 +245,7 @@ begin
                 for k := 0 to Length(camelCaseWords)-1 do begin
                   theWord := camelCaseWords[k];
                   if (Trim(theWord) <> '') and
-                     (not SpelledCorrectly(theWord)) then begin
+                     (not SpelledCorrectly(Trim(theWord))) then begin
                     result := false;
                     fErrors.Add(AFilename+' (Line '+IntToStr(i+1)+')'+': '+theWord);
                   end;
@@ -266,7 +278,7 @@ begin
   result := -1;
   occur := 0;
   for i:=1 to AString.Length do begin
-    if (AString[i] = AChar) then begin 
+    if (AString[i] = AChar) then begin
       if (AString[i+1] = AChar) then begin //detect escaped delphi quote eg: 'couldn''t'
         Inc(AOccurencePos);
         Continue; //move onto next the occurence, since you cannot increment the loop var
@@ -280,14 +292,14 @@ begin
   end;
 end;
 
-function TSpellChecker.RemoveStartEndQuotes(const AStr: string): string; 
+function TSpellChecker.RemoveStartEndQuotes(const AStr: string): string;
 begin
   result := AStr;
-  if (result.Length > 0) and 
-     (result[1] = fQuoteSym) then 
+  if (result.Length > 0) and
+     (result[1] = fQuoteSym) then
     result := Copy(result, 2, result.Length);
   if (result.Length > 0) and
-     (result[result.Length] = fQuoteSym) then 
+     (result[result.Length] = fQuoteSym) then
     result := Copy(result, 1, result.Length-1);
 end;
 

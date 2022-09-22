@@ -7,8 +7,8 @@ program SpellCheckLinter;
 uses
   System.SysUtils,
   DateUtils,
-  uSpellChecker in '..\SpellChecker\uSpellChecker.pas',
-  uConstants in '..\SpellChecker\uConstants.pas';
+  uConstants in 'uConstants.pas',
+  uSpellChecker in 'uSpellChecker.pas';
 
 procedure RunSpellChecker;
   const
