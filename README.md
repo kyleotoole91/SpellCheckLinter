@@ -1,5 +1,5 @@
 # SpellCheckLinter
- Spell check linter designed specifically for .pas code files
+ Command line spell check linter designed specifically for .pas code files.
 
 Startup params:
 LanguageFilename=1; //.dic file
@@ -19,3 +19,6 @@ Ingnore files may be placed in the working directory
 IgnoreWords.dic (list of words to ignore, extends the language file)
 IgnoreFiles.dic (list of filepaths to ignore)
 IgnoreLines.dic (ignore lines of code, not by line number, but by value by pasting the entire line in here)
+
+Link to zip containing exe, source and language files
+https://drive.google.com/file/d/1zzS-7fiSRkb1MbBpiPvmpdm59J-C0LJI/view?usp=sharing
