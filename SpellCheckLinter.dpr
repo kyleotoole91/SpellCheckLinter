@@ -17,6 +17,7 @@ procedure RunSpellChecker;
     cExtFilter=3; //eg *.pas
     cResursive=4; //when 0, resusive scan is disabled
     cHalt=5; //when 0, halting at the end of run is disabled
+    cQuoteSym=6; //defaulted to a single quote ' for .pas files. Strings between these quote symbols are checked
   var
     a: integer;
     input: string;
@@ -31,13 +32,14 @@ procedure RunSpellChecker;
       if Trim(ParamStr(cExtFilter)) <> '' then
         spellChecker.FileExtFilter := ParamStr(cExtFilter);
       spellChecker.Recursive := ParamStr(cResursive) <> '0';
+      if Trim(ParamStr(cQuoteSym)) <> '' then
+        spellChecker.QuoteSym := ParamStr(cQuoteSym);
       spellChecker.Run;
       Writeln(Format('Checked %d files (%s)', [spellChecker.FileCount, spellChecker.FileExtFilter]));
-      if spellChecker.Errors.Count > 0 then begin
-        Writeln(Format('Error count %d', [spellChecker.Errors.Count]));
-        Writeln(Format('Errors found in %d seconds', [SecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
-        Writeln('Errors:');
-      end else
+      Writeln(Format('Checked files in %d seconds', [SecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
+      if spellChecker.Errors.Count > 0 then
+        Writeln(Format('Error count %d', [spellChecker.Errors.Count]))
+      else
         Writeln('No errors found');
       for a := 0 to spellChecker.Errors.Count-1 do
         Writeln(spellChecker.Errors.Strings[a]);
