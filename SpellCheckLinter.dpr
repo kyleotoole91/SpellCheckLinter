@@ -50,7 +50,8 @@ uses
         Writeln(Format('Checked %d files in %dms', [spellChecker.FileCount,
                                                     MilliSecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]))
       else
-        Writeln(Format('Checked files in %ds', [SecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
+        Writeln(Format('Checked %d files in %ds', [spellChecker.FileCount,
+                                                   MilliSecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
       Writeln(Format('Unmatch count %d', [spellChecker.ErrorsWords.Count]));
       if spellChecker.Errors.Count > 0 then begin
         if ParamStr(cHalt) <> '0' then begin
