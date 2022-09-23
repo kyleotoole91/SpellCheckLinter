@@ -25,11 +25,8 @@ uses
     procedure NoErrorsMsg;
     begin
       if ParamStr(cHalt) <> '0' then begin
-        Writeln('Press Enter to close (R for restart)');
-        ReadLn
-        (input);
-        if (input = 'r') or (input = 'R') then
-          RunSpellChecker;
+        Writeln('Press Enter to close');
+        ReadLn(input);
       end;
     end;
   begin
@@ -61,9 +58,7 @@ uses
             if ParamStr(cExtFilter) <> '0' then
               Readln(input);
             if (input = 'y') or (input = 'Y') then
-              spellChecker.AddToIgnoreFile
-            else if (input = 'r') or (input = 'R') then
-              RunSpellChecker;
+              spellChecker.AddToIgnoreFile;
           end else
             NoErrorsMsg;
         end;
