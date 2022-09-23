@@ -30,6 +30,7 @@ uses
       end;
     end;
   begin
+    input := '';
     spellChecker := TSpellChecker.Create;
     try
       if Trim(ParamStr(cLanguageFilename)) <> '' then
@@ -66,6 +67,9 @@ uses
         NoErrorsMsg;
     finally
       spellChecker.Free;
+      if (input ='R') or
+         (input ='r') then
+        RunSpellChecker;
     end;
   end;
 
