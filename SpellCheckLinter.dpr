@@ -54,7 +54,7 @@ uses
       if spellChecker.Errors.Count > 0 then begin
         if (ParamStr(cHalt) <> '0') then begin
           if (spellChecker.ErrorsWords.Count > 0) then begin
-              Writeln('Would you like to add these words to '+cIgnoreWords+'? Y/N (R for restart)');
+              Writeln('Would you like to add these words to '+cIgnoreWords+'? Y/N');
             if ParamStr(cExtFilter) <> '0' then
               Readln(input);
             if (input = 'y') or (input = 'Y') then
