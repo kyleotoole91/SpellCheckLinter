@@ -17,7 +17,7 @@ Halting at the end of the run can be disable by supplying 0 as a param.
 
 Hidden feature: submit r or R to rerun without needing to restart the application. Usefull when launching from Windows Explorer
 
-Ignnore files may be placed in the working directory
+Ignore files may be placed in the working directory
 IgnoreWords.dic (list of words to ignore, extends the language file)
 IgnoreFiles.dic (list of filepaths to ignore)
 IgnoreLines.dic (ignore lines of code, not by line number, but by value by pasting the entire line in here)
