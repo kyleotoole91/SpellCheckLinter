@@ -46,6 +46,8 @@ uses
         spellChecker.QuoteSym := ParamStr(cQuoteSym);
       Writeln('Linting files, please wait...');
       spellChecker.Run;
+      for a := 0 to spellChecker.Errors.Count-1 do
+        Writeln(spellChecker.Errors.Strings[a]);
       if SecondsBetween(spellChecker.StartTime, spellChecker.EndTime) = 0 then
         Writeln(Format('Checked %d files in %dms', [spellChecker.FileCount,
                                                     MilliSecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]))
@@ -53,8 +55,6 @@ uses
         Writeln(Format('Checked files in %ds', [SecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
       Writeln(Format('Unmatch count %d', [spellChecker.ErrorsWords.Count]));
       if spellChecker.Errors.Count > 0 then begin
-        for a := 0 to spellChecker.Errors.Count-1 do
-          Writeln(spellChecker.Errors.Strings[a]);
         if (ParamStr(cHalt) <> '0') then begin
           if (spellChecker.ErrorsWords.Count > 0) then begin
               Writeln('Would you like to add these words to '+cIgnoreWords+'? Y/N (R for restart)');
