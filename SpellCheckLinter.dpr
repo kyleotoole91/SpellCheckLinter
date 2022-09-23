@@ -24,9 +24,13 @@ uses
     spellChecker: TSpellChecker;
     procedure NoErrorsMsg;
     begin
-      Writeln('Press Enter to close');
-      if ParamStr(cHalt) <> '0' then
-        Readln(input);
+      if ParamStr(cHalt) <> '0' then begin
+        Writeln('Press Enter to close (R for restart)');
+        ReadLn
+        (input);
+        if (input = 'r') or (input = 'R') then
+          RunSpellChecker;
+      end;
     end;
   begin
     spellChecker := TSpellChecker.Create;
@@ -42,22 +46,24 @@ uses
         spellChecker.QuoteSym := ParamStr(cQuoteSym);
       Writeln('Linting files, please wait...');
       spellChecker.Run;
-      Writeln(Format('Checked %d files (%s)', [spellChecker.FileCount, spellChecker.FileExtFilter]));
       if SecondsBetween(spellChecker.StartTime, spellChecker.EndTime) = 0 then
-        Writeln(Format('Checked files in %dms', [MilliSecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]))
+        Writeln(Format('Checked %d files in %dms', [spellChecker.FileCount,
+                                                    MilliSecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]))
       else
         Writeln(Format('Checked files in %ds', [SecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
+      Writeln(Format('Unmatch count %d', [spellChecker.ErrorsWords.Count]));
       if spellChecker.Errors.Count > 0 then begin
-        Writeln(Format('Error count %d', [spellChecker.Errors.Count]));
         for a := 0 to spellChecker.Errors.Count-1 do
           Writeln(spellChecker.Errors.Strings[a]);
         if (ParamStr(cHalt) <> '0') then begin
           if (spellChecker.ErrorsWords.Count > 0) then begin
-              Writeln('Would you like to add these words to '+cIgnoreWords+'? Y/N');
+              Writeln('Would you like to add these words to '+cIgnoreWords+'? Y/N (R for restart)');
             if ParamStr(cExtFilter) <> '0' then
               Readln(input);
             if (input = 'y') or (input = 'Y') then
-              spellChecker.AddToIgnoreFile;
+              spellChecker.AddToIgnoreFile
+            else if (input = 'r') or (input = 'R') then
+              RunSpellChecker;
           end else
             NoErrorsMsg;
         end;
