@@ -34,7 +34,7 @@ type
     function NeedsSpellCheck(const AValue: string): boolean;
     function IsNumeric(const AString: string): boolean;
     function IsCommentLine(const ALine: string): boolean;
-    function IsGUID(const ALine: string): boolean;
+    function IsGuid(const ALine: string): boolean;
     function MultiCommentCloseTag: string;
     function PosOfOccurence(const AString: string; const AChar: string; AOccurencePos: integer=1): integer;
     function OccurrenceCount(const AString: string; const AChar: string): integer;
@@ -241,12 +241,13 @@ begin
     fMultiCommentSym := '';
 end;
 
-function TSpellChecker.IsGUID(const ALine: string): boolean;
+function TSpellChecker.IsGuid(const ALine: string): boolean;
 begin
   result := (ALine.Chars[0] = '{') and
             (ALine.Chars[ALine.Length-1] = '}');
   if result then
-    result := ALine.Contains('-')
+    result := ALine.Contains('-') and
+              (ALine.Length >= cGuidLen)
 end;
 
 function TSpellChecker.MultiCommentCloseTag: string;
@@ -312,7 +313,7 @@ begin
           theStr := SanitizeWord(theStr, false);
           if Trim(theStr.Replace(fQuoteSym, '')) = '' then //break, if the string only containes quotes and spaces
             Break
-          else if IsGUID(theStr) then
+          else if IsGuid(theStr) then
             fLineWords.DelimitedText := ''
           else
             fLineWords.DelimitedText := theStr;
