@@ -21,4 +21,4 @@ IgnoreFiles.dic (list of filepaths to ignore)
 IgnoreLines.dic (ignore lines of code, not by line number, but by value by pasting the entire line in here)
 
 Link to zip containing exe, source and language files
-https://drive.google.com/file/d/1zzS-7fiSRkb1MbBpiPvmpdm59J-C0LJI/view?usp=sharing
+https://drive.google.com/file/d/1rzD_JmpPTy9X6oh-4CjanN559ibzDP0n/view?usp=sharing
