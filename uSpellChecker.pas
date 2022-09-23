@@ -330,7 +330,7 @@ begin
               end else begin
                 fileExt := ExtractFileExt(theWord);
                 if (fileExt <> '') and //remove file extensions
-                   (fileExt.Length = cFileExtLen) then
+                   ((fileExt.Length = cFileExtLen) or (fileExt.Length = cFileExtLen+1)) then
                   theWord := theWord.Replace(ExtractFileExt(theWord), '');
                 camelCaseWords := TRegEx.Split(theWord, cRegExCamelPascalCaseSpliter);
                 for k := 0 to Length(camelCaseWords)-1 do begin
