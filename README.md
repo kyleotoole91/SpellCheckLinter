@@ -15,6 +15,8 @@ The default source path is the working directory.
 Resursive scan can be disabled by supplying 0 as a param.
 Halting at the end of the run can be disable by supplying 0 as a param.
 
+Hidden feature: submit r or R to rerun without needing to restart the application. Usefull when launching from Windows Explorer
+
 Ingnore files may be placed in the working directory
 IgnoreWords.dic (list of words to ignore, extends the language file)
 IgnoreFiles.dic (list of filepaths to ignore)
