@@ -23,23 +23,30 @@ type
     fFileExtFilter: string;
     fSourcePath: string;
     fLanguageFilename: string;
+    fMultiCommentSym: string;
     fWordsDict: TDictionary<string, string>;
     fRecursive: boolean;
+    fErrorWords: TStringList;
     procedure Clear;
     procedure LoadIgnoreFiles;
     procedure LoadLanguageDictionary;
     procedure SetLanguageFilename(const Value: string);
+    function NeedsSpellCheck(const AValue: string): boolean;
     function IsNumeric(const AString: string): boolean;
+    function IsCommentLine(const ALine: string): boolean;
+    function IsGUID(const ALine: string): boolean;
+    function MultiCommentCloseTag: string;
     function PosOfOccurence(const AString: string; const AChar: string; AOccurencePos: integer=1): integer;
     function OccurrenceCount(const AString: string; const AChar: string): integer;
     function SpellCheckFile(const AFilename: string): boolean;
-    function SanitizeWord(const AWord: string): string;
+    function SanitizeWord(const AWord: string; const ARemovePeriods: boolean=true): string;
     function RemoveStartEndQuotes(const AStr: string): string;
   public
     constructor Create;
     destructor Destroy; override;
     function Run: boolean;
-    function SpelledCorrectly(const AWord: string): boolean;
+    function SpelledCorrectly(AWord: string): boolean;
+    function AddToIgnoreFile: boolean; 
     property LanguageFilename: string read fLanguageFilename write SetLanguageFilename;
     property SourcePath: string read fSourcePath write fSourcePath;
     property QuoteSym: string read fQuoteSym write fQuoteSym;
@@ -53,18 +60,20 @@ type
     property Errors: TStringList read fErrors;
     property Recursive: boolean read fRecursive write fRecursive;
     property FileExtFilter: string read fFileExtFilter write fFileExtFilter;
+    property ErrorsWords: TStringList read fErrorWords write fErrorWords;
   end;
 
 implementation
 
-const
-  cRegExCamelPascalCaseSpliter='([A-Z]+|[A-Z]?[a-z]+)(?=[A-Z]|\b)';
+uses
+  System.Character;
 
 { TSpellChecker }
 
 constructor TSpellChecker.Create;
 begin
   inherited;
+  fErrorWords := TStringList.Create;
   fWordsDict := TDictionary<string, string>.Create;
   fLanguageFile := TStringList.Create;
   fSourceFile := TStringList.Create;
@@ -82,6 +91,7 @@ end;
 destructor TSpellChecker.Destroy;
 begin
   try
+    fErrorWords.DisposeOf;
     fIgnoreLines.DisposeOf;
     fIgnoreWords.DisposeOf;
     fIgnoreFiles.DisposeOf;
@@ -96,12 +106,40 @@ begin
 end;
 
 function TSpellChecker.IsNumeric(const AString: string): boolean;
+var
+  a: integer;
 begin
-  result := True;
+  result := false;
+  {$WARNINGS OFF}
+  for a := 1 to AString.Length do begin
+    result := System.Character.IsNumber(AString, a);
+    if not result then
+      break;
+  end;
+  {$WARNINGS ON}
+end;
+
+function TSpellChecker.AddToIgnoreFile: boolean;
+var
+  sl: TStringList;
+  a: integer;
+begin
+  result := true;
   try
-    StrToInt64(AString);
-  except
-    result := false;
+    sl := TStringList.Create;  
+    if FileExists('.\'+cIgnoreWords) then
+      sl.LoadFromFile(cIgnoreWords);
+    sl.Add(fErrorWords.Text);
+    for a := 0 to fErrorWords.Count-1 do begin
+      if sl.IndexOf(fErrorWords.Strings[a]) = -1 then
+        sl.Add(fErrorWords.Strings[a]);
+    end;  
+    sl.SaveToFile('.\'+cIgnoreWords);
+  except 
+    on e: exception do begin
+      result := false;
+      fErrors.Add(e.Classname+' '+e.Message);
+    end;
   end;
 end;
 
@@ -131,6 +169,7 @@ begin
   fStartTime := Now;
   try
     try
+      fErrorWords.Clear;
       LoadIgnoreFiles;
       LoadLanguageDictionary;
       if FileExists(fSourcePath) then
@@ -182,6 +221,42 @@ begin
   end;
 end;
 
+function TSpellChecker.NeedsSpellCheck(const AValue: string): boolean;
+begin
+  result := not (AValue.StartsWith('#') or 
+                 AValue.StartsWith('//') or
+                 AValue.StartsWith('/') or 
+                 AValue.StartsWith('\') or  
+                 AValue.StartsWith('\\'));
+end;
+
+function TSpellChecker.IsCommentLine(const ALine: string): boolean;
+begin
+  if ALine.StartsWith('{') then
+    fMultiCommentSym := '{'
+  else if ALine.StartsWith('/*') then
+    fMultiCommentSym := '{';
+  result := ALine.StartsWith('//') or (fMultiCommentSym <> '');
+  if ALine.Contains(MultiCommentCloseTag) then //continue to return false until a closing tag is found, resume checking on the next line
+    fMultiCommentSym := '';
+end;
+
+function TSpellChecker.IsGUID(const ALine: string): boolean;
+begin
+  result := (ALine.Chars[0] = '{') and
+            (ALine.Chars[ALine.Length-1] = '}');
+  if result then
+    result := ALine.Contains('-')
+end;
+
+function TSpellChecker.MultiCommentCloseTag: string;
+begin
+  if fMultiCommentSym = '{' then
+    result := '}'
+  else
+    result := '';
+end;
+
 procedure TSpellChecker.LoadIgnoreFiles;
 begin
   if FileExists(cIgnoreFiles) then
@@ -192,9 +267,11 @@ begin
     fIgnoreLines.LoadFromFile(cIgnoreLines);
 end;
 
-function TSpellChecker.SpelledCorrectly(const AWord: string): boolean;
-begin
-  result := (AWord = '') or
+function TSpellChecker.SpelledCorrectly(AWord: string): boolean;
+begin  
+  AWord := Trim(TRegEx.Replace(AWord, cRegExKeepLettersAndQuotes, ' '));
+  result := (AWord.Length < cMinCheckLength) or
+            (UpperCase(AWord) = AWord) or
             (IsNumeric(AWord)) or
             (fIgnoreWords.IndexOf(AWord) >= 0);
   if not result then begin
@@ -211,36 +288,49 @@ var
   quotePos: integer;
   theWord: string;
   camelCaseWords: TArray<string>;
+  fileExt: string;
+const
+  cEmptyStr=' ''''';
+  cEmptyStr2=' '''',';
 begin
   result := true;
   fSourceFile.LoadFromFile(AFilename);
   for i := 0 to fSourceFile.Count-1 do begin
-    lineStr := fSourceFile.Strings[i];
-    if (Trim(lineStr) <> '') and
+    lineStr := Trim(fSourceFile.Strings[i]);
+    if (lineStr <> '') and
+       (not IsCommentLine(lineStr)) and
        (fIgnoreLines.IndexOf(Trim(lineStr)) = -1) then begin
-      while OccurrenceCount(lineStr, fQuoteSym) > 1 do begin
+      lineStr := lineStr.Replace(cEmptyStr2, '')
+                        .Replace(cEmptyStr, ''); //remove emtpy strings, without this everything after an empty string ('' or '',) is ignored
+      while OccurrenceCount(lineStr.Replace('''''', ''), fQuoteSym) > 1 do begin
         theStr := RemoveStartEndQuotes(Copy(lineStr, pos(fQuoteSym, lineStr), lineStr.Length));
         quotePos := PosOfOccurence(theStr, fQuoteSym, 1);
-        if quotePos >= 0 then
+        if (quotePos >= 0) then
           theStr := RemoveStartEndQuotes(Copy(theStr, 0, quotePos));
         lineStr := lineStr.Replace(fQuoteSym + theStr + fQuoteSym, '');
-        if (not theStr.Contains('\')) and //ignore path strings
-           (not theStr.Contains('/')) then begin
-          theStr := SanitizeWord(theStr);
+        if NeedsSpellCheck(lineStr) then begin
+          theStr := SanitizeWord(theStr, false);
           if Trim(theStr.Replace(fQuoteSym, '')) = '' then //break, if the string only containes quotes and spaces
             Break
+          else if IsGUID(theStr) then
+            fLineWords.DelimitedText := ''
           else
-            fLineWords.DelimitedText := SanitizeWord(theStr);
+            fLineWords.DelimitedText := theStr;
           theWord := '';
           for j := 0 to fLineWords.Count-1 do begin
-            theWord := SanitizeWord(fLineWords.Strings[j]);
+            theWord := SanitizeWord(fLineWords.Strings[j], false);
             if Trim(theWord) <> '' then begin
-              if theWord.Contains('''') then begin //the rexex will split on this. You don't normally see 's in camelCase or PascalCase words
+              if theWord.Contains('''') then begin //the regex will split on this. You don't normally see apostrophies in camelCase or PascalCase words
                 if not SpelledCorrectly(theWord) then begin
                   result := false;
                   fErrors.Add(AFilename+' (Line '+IntToStr(i+1)+')'+': '+theWord);
+                  fErrorWords.Add(theWord);
                 end;
               end else begin
+                fileExt := ExtractFileExt(theWord);
+                if (fileExt <> '') and //remove file extensions
+                   (fileExt.Length = cFileExtLen) then
+                  theWord := theWord.Replace(ExtractFileExt(theWord), '');
                 camelCaseWords := TRegEx.Split(theWord, cRegExCamelPascalCaseSpliter);
                 for k := 0 to Length(camelCaseWords)-1 do begin
                   theWord := camelCaseWords[k];
@@ -248,6 +338,7 @@ begin
                      (not SpelledCorrectly(Trim(theWord))) then begin
                     result := false;
                     fErrors.Add(AFilename+' (Line '+IntToStr(i+1)+')'+': '+theWord);
+                    fErrorWords.Add(theWord);
                   end;
                 end;
               end;
@@ -279,14 +370,14 @@ begin
   occur := 0;
   for i:=1 to AString.Length do begin
     if (AString[i] = AChar) then begin
-      if (AString[i+1] = AChar) then begin //detect escaped delphi quote eg: 'couldn''t'
-        Inc(AOccurencePos);
-        Continue; //move onto next the occurence, since you cannot increment the loop var
-      end;
-      Inc(occur);
-      if occur = AOccurencePos then begin
-        result := i;
-        Break;
+      if (AString[i+1] = AChar) then //detect escaped delphi quote eg: 'couldn''t'
+        Inc(AOccurencePos)
+      else begin
+        Inc(occur);
+        if occur = AOccurencePos then begin
+          result := i;
+          Break;
+        end;
       end;
     end;
   end;
@@ -303,29 +394,14 @@ begin
     result := Copy(result, 1, result.Length-1);
 end;
 
-function TSpellChecker.SanitizeWord(const AWord: string): string;
+function TSpellChecker.SanitizeWord(const AWord: string; const ARemovePeriods: boolean=true): string;
 begin
-  result := AWord.Replace(':', ' ')
-                 .Replace('.', ' ')
-                 .Replace(',', ' ')
-                 .Replace('*', ' ')
-                 .Replace('-', ' ')
-                 .Replace('/', ' ')
-                 .Replace(')', ' ')
-                 .Replace('(', ' ')
-                 .Replace(']', ' ')
-                 .Replace('[', ' ')
-                 .Replace(';', ' ')
-                 .Replace('=', ' ')
-                 .Replace('&', ' ')
-                 .Replace('?', ' ')
-                 .Replace('>', ' ')
-                 .Replace('<', ' ')
-                 .Replace(';', ' ')
-                 .Replace('_', ' ');
+  result := Trim(TRegEx.Replace(AWord, cRegExKeepLettersAndQuotes, ' '));
   result := Trim(RemoveStartEndQuotes(result));
   if fQuoteSym = '''' then //remove Delphi escaped quotes and replace with one single quote
     result := result.Replace('''''', '''');
+  if ARemovePeriods then
+    result := result.Replace('.', ' ');
 end;
 
 procedure TSpellChecker.SetLanguageFilename(const Value: string);

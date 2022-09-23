@@ -10,7 +10,7 @@ uses
   uConstants in 'uConstants.pas',
   uSpellChecker in 'uSpellChecker.pas';
 
-procedure RunSpellChecker;
+  procedure RunSpellChecker;
   const
     cLanguageFilename=1; //.dic file
     cSourceFilename=2; //source path or filename
@@ -22,6 +22,12 @@ procedure RunSpellChecker;
     a: integer;
     input: string;
     spellChecker: TSpellChecker;
+    procedure NoErrorsMsg;
+    begin
+      Writeln('Press Enter to close');
+      if ParamStr(cHalt) <> '0' then
+        Readln(input);
+    end;
   begin
     spellChecker := TSpellChecker.Create;
     try
@@ -34,17 +40,29 @@ procedure RunSpellChecker;
       spellChecker.Recursive := ParamStr(cResursive) <> '0';
       if Trim(ParamStr(cQuoteSym)) <> '' then
         spellChecker.QuoteSym := ParamStr(cQuoteSym);
+      Writeln('Linting files, please wait...');
       spellChecker.Run;
       Writeln(Format('Checked %d files (%s)', [spellChecker.FileCount, spellChecker.FileExtFilter]));
-      Writeln(Format('Checked files in %d seconds', [SecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
-      if spellChecker.Errors.Count > 0 then
-        Writeln(Format('Error count %d', [spellChecker.Errors.Count]))
+      if SecondsBetween(spellChecker.StartTime, spellChecker.EndTime) = 0 then
+        Writeln(Format('Checked files in %dms', [MilliSecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]))
       else
-        Writeln('No errors found');
-      for a := 0 to spellChecker.Errors.Count-1 do
-        Writeln(spellChecker.Errors.Strings[a]);
-      if ParamStr(cExtFilter) <> '0' then
-        Readln(input);
+        Writeln(Format('Checked files in %ds', [SecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
+      if spellChecker.Errors.Count > 0 then begin
+        Writeln(Format('Error count %d', [spellChecker.Errors.Count]));
+        for a := 0 to spellChecker.Errors.Count-1 do
+          Writeln(spellChecker.Errors.Strings[a]);
+        if (ParamStr(cHalt) <> '0') then begin
+          if (spellChecker.ErrorsWords.Count > 0) then begin
+              Writeln('Would you like to add these words to '+cIgnoreWords+'? Y/N');
+            if ParamStr(cExtFilter) <> '0' then
+              Readln(input);
+            if (input = 'y') or (input = 'Y') then
+              spellChecker.AddToIgnoreFile;
+          end else
+            NoErrorsMsg;
+        end;
+      end else
+        NoErrorsMsg;
     finally
       spellChecker.Free;
     end;
