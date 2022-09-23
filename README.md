@@ -1,5 +1,5 @@
 # SpellCheckLinter
- Command line spell check linter designed specifically for .pas code files.
+Command line spell check linter designed specifically for .pas code files.
 
 Startup params:
 LanguageFilename=1; //.dic file
