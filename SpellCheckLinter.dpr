@@ -52,13 +52,13 @@ uses
         Writeln(Format('Checked files in %ds', [SecondsBetween(spellChecker.StartTime, spellChecker.EndTime)]));
       Writeln(Format('Unmatch count %d', [spellChecker.ErrorsWords.Count]));
       if spellChecker.Errors.Count > 0 then begin
-        if (ParamStr(cHalt) <> '0') then begin
+        if ParamStr(cHalt) <> '0' then begin
           if (spellChecker.ErrorsWords.Count > 0) then begin
-              Writeln('Would you like to add these words to '+cIgnoreWords+'? Y/N');
-            if ParamStr(cExtFilter) <> '0' then
-              Readln(input);
-            if (input = 'y') or (input = 'Y') then
-              spellChecker.AddToIgnoreFile;
+            Writeln('Would you like to add these words to '+cIgnoreWords+'? Y/N');
+          if ParamStr(cExtFilter) <> '0' then
+            Readln(input);
+          if (input = 'y') or (input = 'Y') then
+            spellChecker.AddToIgnoreFile;
           end else
             NoErrorsMsg;
         end;
