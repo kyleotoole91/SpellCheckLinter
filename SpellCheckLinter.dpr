@@ -10,14 +10,15 @@ uses
   uConstants in 'uConstants.pas',
   uSpellChecker in 'uSpellChecker.pas';
 
-  procedure RunSpellChecker;
-  const
+const
     cLanguageFilename=1; //.dic file
     cSourceFilename=2; //source path or filename
     cExtFilter=3; //eg *.pas
     cResursive=4; //when 0, resusive scan is disabled
     cHalt=5; //when 0, halting at the end of run is disabled
-    cQuoteSym=6; //defaulted to a single quote ' for .pas files. Strings between these quote symbols are checked
+    cQuoteSym=6; //defaulted to a single quote for .pas files. Strings between these quote symbols are checked
+
+  procedure RunSpellChecker;
   var
     a: integer;
     input: string;
@@ -78,7 +79,10 @@ begin
   try
     RunSpellChecker;
   except
-    on e: Exception do
+    on e: Exception do begin
       Writeln(e.ClassName, ': ', e.Message);
+      if ParamStr(cHalt) <> '0' then
+        Readln(input);
+    end;
   end;
 end.
