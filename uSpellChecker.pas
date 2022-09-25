@@ -305,41 +305,43 @@ begin
                         .Replace(cEmptyStr, ''); //remove emtpy strings, without this everything after an empty string ('' or '',) is ignored
       while OccurrenceCount(lineStr.Replace('''''', ''), fQuoteSym) > 1 do begin
         theStr := RemoveStartEndQuotes(Copy(lineStr, pos(fQuoteSym, lineStr), lineStr.Length));
-        quotePos := PosOfOccurence(theStr, fQuoteSym, 1);
-        if (quotePos >= 0) then
-          theStr := RemoveStartEndQuotes(Copy(theStr, 0, quotePos));
-        lineStr := lineStr.Replace(fQuoteSym + theStr + fQuoteSym, '');
-        if NeedsSpellCheck(lineStr) then begin
-          theStr := SanitizeWord(theStr, false);
-          if Trim(theStr.Replace(fQuoteSym, '')) = '' then //break, if the string only containes quotes and spaces
-            Break
-          else if IsGuid(theStr) then
-            fLineWords.DelimitedText := ''
-          else
-            fLineWords.DelimitedText := theStr;
-          theWord := '';
-          for j := 0 to fLineWords.Count-1 do begin
-            theWord := SanitizeWord(fLineWords.Strings[j], false);
-            if Trim(theWord) <> '' then begin
-              if theWord.Contains('''') then begin //the regex will split on this. You don't normally see apostrophies in camelCase or PascalCase words
-                if not SpelledCorrectly(theWord) then begin
-                  result := false;
-                  fErrors.Add(AFilename+' (Line '+IntToStr(i+1)+')'+': '+theWord);
-                  fErrorWords.Add(theWord);
-                end;
-              end else begin
-                fileExt := ExtractFileExt(theWord);
-                if (fileExt <> '') and //remove file extensions
-                   ((fileExt.Length = cFileExtLen) or (fileExt.Length = cFileExtLen+1)) then
-                  theWord := theWord.Replace(ExtractFileExt(theWord), '');
-                camelCaseWords := TRegEx.Split(theWord, cRegExCamelPascalCaseSpliter);
-                for k := 0 to Length(camelCaseWords)-1 do begin
-                  theWord := camelCaseWords[k];
-                  if (Trim(theWord) <> '') and
-                     (not SpelledCorrectly(Trim(theWord))) then begin
+        if not (theStr.Contains('://')) then begin
+          quotePos := PosOfOccurence(theStr, fQuoteSym, 1);
+          if (quotePos >= 0) then
+            theStr := RemoveStartEndQuotes(Copy(theStr, 0, quotePos));
+          lineStr := lineStr.Replace(fQuoteSym + theStr + fQuoteSym, '');
+          if NeedsSpellCheck(lineStr) then begin
+            theStr := SanitizeWord(theStr, false);
+            if Trim(theStr.Replace(fQuoteSym, '')) = '' then //break, if the string only containes quotes and spaces
+              Break
+            else if IsGuid(theStr) then
+              fLineWords.DelimitedText := ''
+            else
+              fLineWords.DelimitedText := theStr;
+            theWord := '';
+            for j := 0 to fLineWords.Count-1 do begin
+              theWord := SanitizeWord(fLineWords.Strings[j], false);
+              if Trim(theWord) <> '' then begin
+                if theWord.Contains('''') then begin //the regex will split on this. You don't normally see apostrophies in camelCase or PascalCase words
+                  if not SpelledCorrectly(theWord) then begin
                     result := false;
                     fErrors.Add(AFilename+' (Line '+IntToStr(i+1)+')'+': '+theWord);
                     fErrorWords.Add(theWord);
+                  end;
+                end else begin
+                  fileExt := ExtractFileExt(theWord);
+                  if (fileExt <> '') and //remove file extensions
+                     ((fileExt.Length = cFileExtLen) or (fileExt.Length = cFileExtLen+1)) then
+                    theWord := theWord.Replace(ExtractFileExt(theWord), '');
+                  camelCaseWords := TRegEx.Split(theWord, cRegExCamelPascalCaseSpliter);
+                  for k := 0 to Length(camelCaseWords)-1 do begin
+                    theWord := camelCaseWords[k];
+                    if (Trim(theWord) <> '') and
+                       (not SpelledCorrectly(Trim(theWord))) then begin
+                      result := false;
+                      fErrors.Add(AFilename+' (Line '+IntToStr(i+1)+')'+': '+theWord);
+                      fErrorWords.Add(theWord);
+                    end;
                   end;
                 end;
               end;
