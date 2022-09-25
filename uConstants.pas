@@ -5,7 +5,7 @@ interface
 const
   cGuidLen=36;
   cFileExtLen=4; //includes period eg .txt = 4
-  cMinCheckLength=2; //there must be X number of chars in order for it to get checked
+  cMinCheckLength=3; //there must be X number of chars in order for it to get checked
   cDefaultExtFilter='*.pas';
   cDefaultSourcePath='.\';
   cDefaultQuote='''';
