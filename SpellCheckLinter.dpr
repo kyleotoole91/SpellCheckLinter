@@ -7,12 +7,12 @@ program SpellCheckLinter;
 uses
   System.SysUtils,
   uConstants in 'uConstants.pas',
-  uSpellChecker in 'uSpellChecker.pas',
-  uSpellCheckerController in 'uSpellCheckerController.pas';
+  uSpellCheck in 'uSpellCheck.pas',
+  uSpellCheckController in 'uSpellCheckController.pas';
 
 begin
   try
-    RunSpellChecker;
+    RunSpellCheck;
   except
     on e: Exception do begin
       Writeln(e.ClassName, ': ', e.Message);

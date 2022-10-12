@@ -13,3 +13,9 @@ Win32/Debug/en_US_k.dic
 Win32/Debug/IgnoreWords.dic
 Win32/Debug/test.pas
 Win32/Release/test.pas
+IgnoreFiles/IgnoreWords.dic
+IgnoreFiles/IgnorePaths.dic
+IgnoreFiles/IgnoreLines.dic
+IgnoreFiles/IgnoreFiles.dic
+IgnoreFiles/IgnoreContains.dic
+IgnoreFiles/IgnoreCode.dic

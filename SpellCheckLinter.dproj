@@ -163,8 +163,8 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="uConstants.pas"/>
-        <DCCReference Include="uSpellChecker.pas"/>
-        <DCCReference Include="uSpellCheckerController.pas"/>
+        <DCCReference Include="uSpellCheck.pas"/>
+        <DCCReference Include="uSpellCheckController.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

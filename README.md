@@ -1,25 +1,29 @@
 # SpellCheckLinter
 Command line spell check linter designed specifically for .pas code files.
 
-Startup params:
-LanguageFilename=1; //.dic file
-SourceFilename=2; //source path or filename
-ExtFilter=3; //eg *.pas
-Resursive=4; //when 0, resusive scan is disabled
-Halt=5; //when 0, halting at the end of run is disabled
-cQuoteSym=6; //defaulted to a single quote ' for .pas files. Strings between these quote symbols are checked
+Can be launched from explorer, it will halt at the end by default to show the results.
+Can be also launched from CMD where optional params can be set.
+Text within single quotes will be checked against the dictionary file.
+Words must be at least 3 characters in length in order to get checked.
+PascalCase and camelCase text will get split into seperate words.
+The first word in the camel case text must be at least 4 chars in length to get checked.
 
-Defaults to the working directory, scanning resursively for .pas files.
-By default, it looks for en_US.dic file in the working directory.
-The default source path is the working directory.
-Resursive scan can be disabled by supplying 0 as a param.
-Halting at the end of the run can be disable by supplying 0 as a param.
-Hidden feature: submit r or R to rerun without needing to restart the application. Usefull when launching from Windows Explorer
+Startup parameters (optional):
+1) Language file (%s)
+2) Source path or full filename (.\)
+3) File extension mask (*.pas)
+4) Scan folders recursively (1)
+5) Add to ignore prompt (1)
+6) Path for the ignore files (.\)
 
-Ignore files may be placed in the working directory
-IgnoreWords.dic (list of words to ignore, extends the language file)
-IgnoreFiles.dic (list of filepaths to ignore)
-IgnoreLines.dic (ignore lines of code, not by line number, but by value by pasting the entire line in here)
+Ignore files, must be in the same dir as exe, or you change the IgnoreFilePath classs property:
+The IgnoreWords file will ignore the word if the word is in this file.
+The IgnorePaths file will ignore files if the text in the file is contained in the path.
+The IgnoreCode file will ignore the line if the text before the quote is in this file.
+The IgnoreLines file will ignore lines if the text in the file is equal to the line.
+The IgnoreContains file will ignore lines if the text in the file is contained in the the line.
+
+Use Hunspell to inflate the .dic files
 
 Link to zip containing exe, source and language files
-https://drive.google.com/file/d/1rzD_JmpPTy9X6oh-4CjanN559ibzDP0n/view?usp=sharing
+https://drive.google.com/file/d/1PZOK4FGcbcqM5_-ZOOvg9Yytile9b0uP/view?usp=sharing

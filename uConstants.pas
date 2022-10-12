@@ -3,19 +3,31 @@ unit uConstants;
 interface
 
 const
+  cMaxStringLengthDFM=64;
   cGuidLen=36;
-  cFileExtLen=4; //includes period eg .txt = 4
+  cFileExtLen=5; //includes period eg .jpeg = 5
   cMinCheckLength=3; //there must be X number of chars in order for it to get checked
+  cIgnoreCamelPrefixLength=4; //there must be X number of chars in order for it to get checked
+  cSkipLineEndString=';';
+  cSkipLineEndStringDFM=';';
+  cSpellCheckOff='//SPELL_CHECK_OFF';
+  cSpellCheckOn='//SPELL_CHECK_ON';
+  cSkipLineEndOfFunctionBlock='end;';
+  cSkippedLineCountLimit=220; //
   cDefaultExtFilter='*.pas';
   cDefaultSourcePath='.\';
   cDefaultQuote='''';
-  cIgnoreFiles='IgnoreFiles.dic';
-  cIgnoreWords='IgnoreWords.dic';
-  cIgnoreLines='IgnoreLines.dic';
-  cDefaultlanguagePath='en_US.dic';
+  cIgnoreContainsName='IgnoreContains.dic';
+  cIgnoreCodeName='IgnoreCode.dic';
+  cIgnorePathsName='IgnorePaths.dic';
+  cIgnoreFilesName='IgnoreFiles.dic';
+  cIgnoreWordsName='IgnoreWords.dic';
+  cIgnoreLinesName='IgnoreLines.dic';
+  cDefaultlanguageName='en_US.dic';
   //Regular Expressions
   cRegExCamelPascalCaseSpliter='([A-Z]+|[A-Z]?[a-z]+)(?=[A-Z]|\b)';
-  cRegExKeepLettersAndQuotes='[^A-Z/''a-z/''.]';
+  cRegExKeepLettersAndQuotes='[^A-Z/0-9/''a-z/''.]';
+  cRegExRemoveNumbers='[^A-Z/''a-z/''.]';
 
 implementation
 
