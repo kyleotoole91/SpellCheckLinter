@@ -1,5 +1,5 @@
 # SpellCheckLinter
-Command line spell check linter designed specifically for .pas code files.
+Command line spell check linter designed specifically for Delphi/Pascal code files.
 
 Can be launched from explorer, it will halt at the end by default to show the results.
 Can be also launched from CMD where optional params can be set.
