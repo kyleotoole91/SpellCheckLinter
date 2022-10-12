@@ -1,5 +1,5 @@
 # SpellCheckLinter
-Command line spell check linter designed specifically for .pas code files.
+Command line spell check linter designed specifically for Delphi/Pascal code files.
 
 Can be launched from explorer, it will halt at the end by default to show the results.
 Can be also launched from CMD where optional params can be set.
@@ -9,7 +9,7 @@ PascalCase and camelCase text will get split into seperate words.
 The first word in the camel case text must be at least 4 chars in length to get checked.
 
 Startup parameters (optional):
-1) Language file (%s)
+1) Language file (.\en_US.dic)
 2) Source path or full filename (.\)
 3) File extension mask (*.pas)
 4) Scan folders recursively (1)
