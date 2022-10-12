@@ -10,7 +10,7 @@ const
   cHalt=5; //when 0 the program will stop when finished
   cIgnoreFilepath=6; //defaulted to working dir
 
-procedure RunspellCheck;
+  procedure RunspellCheck;
 
 implementation
 
@@ -30,12 +30,12 @@ uses
     end;
     procedure ShowManual;
     begin
-      Writeln('Welcome to SpellCheckLinter, specifically designed for Delphi/Pascal (.pas) files. ');
+      Writeln('Welcome to SpellCheckLinter, specifically designed for Delphi (.pas/.dfm) files. ');
       Writeln('Can be launched from explorer, it will halt at the end by default to show the results. ');
       Writeln('Can be launched from the command line where optional parameters can be set. ');
-      Writeln('Only text within quotes will be checked against the dictionary file.');
-      Writeln('PascalCase and camelCase text will get split into seperate words.');
-      Writeln(Format('Only words %d characters in length or more will be checked.', [cMinCheckLength]));
+      Writeln('Only text within single quotes will be checked against the dictionary file.');
+      Writeln('PascalCase and camelCase text will get split into separate words.');
+      Writeln(Format('Only words %d characters in length or greater will be checked.', [cMinCheckLength]));
       Writeln('');
       Writeln('Startup parameters (optional):');
       Writeln(Format('1) Language file (%s)', [cDefaultlanguageName]));
@@ -46,7 +46,7 @@ uses
       Writeln(Format('6) Path for the ignore files (%s)', [spellCheck.IngoreFilePath]));
       Writeln('');
       Writeln('Ignore files:');
-      Writeln(Format('The %s file will ignore the word if the word is in this file. An extenstion of %s.', [cIgnoreWordsName, cDefaultlanguageName]));
+      Writeln(Format('The %s file will ignore the word if the word is in this file. An extension of %s.', [cIgnoreWordsName, cDefaultlanguageName]));
       Writeln(Format('The %s file will ignore the line if the text before the quote is in this file.', [cIgnoreCodeName]));
       Writeln(Format('The %s file will ignore files if the text in the file is contained in the path.', [cIgnorePathsName]));
       Writeln(Format('The %s file will ignore lines if the text in the file is equal to the line.', [cIgnoreLinesName]));
@@ -83,13 +83,13 @@ uses
         spellCheck.Recursive := ParamStr(cResursive) <> '0';
         if Trim(ParamStr(cIgnoreFilepath)) <> '' then
           spellCheck.IngoreFilePath := ParamStr(cIgnoreFilepath);
-        Writeln('Linting files, please wait...');
+        Writeln('Spell checking files, please wait...');
         spellCheck.Run;
         if SecondsBetween(spellCheck.StartTime, spellCheck.EndTime) = 0 then
-          Writeln(Format('Checked %d files in %dms', [spellCheck.FileCount,
+          Writeln(Format('Checked %d files in %d milliseconds', [spellCheck.FileCount,
                                                       MilliSecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]))
         else
-          Writeln(Format('Checked %d files in %ds', [spellCheck.FileCount,
+          Writeln(Format('Checked %d files in %d seconds', [spellCheck.FileCount,
                                                      SecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]));
         Writeln(Format('Error count %d', [spellCheck.ErrorsWords.Count]));
         Writeln(' ');
@@ -115,5 +115,4 @@ uses
         RunSpellCheck;
     end;
   end;
-
 end.
