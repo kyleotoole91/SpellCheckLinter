@@ -9,6 +9,7 @@ const
   cResursive=4; //when 0, resusive scan is disabled
   cHalt=5; //when 0 the program will stop when finished
   cIgnoreFilepath=6; //defaulted to working dir
+  cProvideSuggestions=7; //toggle suggestions (these take time to generate)
 
   procedure RunspellCheck;
 
@@ -44,6 +45,7 @@ uses
       Writeln('4) Scan folders recursively (1)');
       Writeln('5) Add to ignore prompt (1)');
       Writeln(Format('6) Path for the ignore files (%s)', [spellCheck.IngoreFilePath]));
+      Writeln('7) Provide suggestions (1)');
       Writeln('');
       Writeln('Ignore files:');
       Writeln(Format('The %s file will ignore the word if the word is in this file. An extension of %s.', [cIgnoreWordsName, cDefaultlanguageName]));
@@ -80,9 +82,11 @@ uses
           spellCheck.SourcePath := ParamStr(cSourceFilename);
         if Trim(ParamStr(cExtFilter)) <> '' then
           spellCheck.FileExtFilter := ParamStr(cExtFilter);
-        spellCheck.Recursive := ParamStr(cResursive) <> '0';
+        spellCheck.Recursive := ParamStr(cResursive) = '1';
         if Trim(ParamStr(cIgnoreFilepath)) <> '' then
           spellCheck.IngoreFilePath := ParamStr(cIgnoreFilepath);
+        if Trim(ParamStr(cProvideSuggestions)) <> '' then
+          spellCheck.ProvideSuggestions := ParamStr(cProvideSuggestions) = '1';
         Writeln('Spell checking files, please wait...');
         spellCheck.Run;
         if SecondsBetween(spellCheck.StartTime, spellCheck.EndTime) = 0 then
@@ -97,7 +101,7 @@ uses
         if spellCheck.Errors.Count > 0 then begin
           if ParamStr(cHalt) <> '0' then begin
             if (spellCheck.ErrorsWords.Count > 0) then begin
-              Writeln('Would you like to add these words to '+cIgnoreWordsName+'? Y/N (R to run again');
+              Writeln('Would you like to add these words to '+cIgnoreWordsName+'? Y/N or R to run again');
             if ParamStr(cExtFilter) <> '0' then
               Readln(input);
             if (input = 'y') or (input = 'Y') then

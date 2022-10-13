@@ -33,11 +33,14 @@ type
     fFileExtFilter: string;
     fSourcePath: string;
     fLanguageFilename: string;
-    fIgnorelinesSymbol: string;
+    fMultiCommentSym: string;
     fWordsDict: TDictionary<string, string>;
     fRecursive: boolean;
     fErrorWords: TStringList;
     fIgnoreContainsLines: TStringList;
+    fProvideSuggestions: boolean;
+    fAltSuggestions: TStringList;
+    fSuggestions: TStringList;
     procedure SetIngoreFilePath(const Value: string);
     procedure BuildCamelCaseWords(const AArr: TArray<string>);
     procedure CleanLineWords;
@@ -45,6 +48,7 @@ type
     procedure LoadIgnoreFiles;
     procedure LoadLanguageDictionary;
     procedure SetLanguageFilename(const Value: string);
+    procedure BuildSuggestions(const AMispelledWord: string);
     function NeedsSpellCheck(const AValue: string): boolean;
     function IsNumeric(const AString: string): boolean;
     function IsCommentLine(const ALine: string): boolean;
@@ -56,6 +60,8 @@ type
     function RemoveEscappedQuotes(const AStr: string): string;
     function InIgnoreCodeFile(const AText: string): boolean;
     function IngoredPathContaining(const AFilename: string): boolean;
+    function EditDistance(const AFromString, AToString: string): integer;
+    procedure AddSuggestion(const ASuggestion: string; const AOpCount: integer; const AInsert: boolean=false);
   public
     constructor Create;
     destructor Destroy; override;
@@ -78,18 +84,22 @@ type
     property ErrorsWords: TStringList read fErrorWords write fErrorWords;
     property IgnoreContainsLines: TStringList read fIgnoreContainsLines;
     property IngoreFilePath: string read fIngoreFilePath write SetIngoreFilePath;
+    property ProvideSuggestions: boolean read fProvideSuggestions write fProvideSuggestions;
   end;
 
 implementation
 
 uses
-  System.Character;
+  System.Character, Math;
 
 { TSpellCheck }
 
 constructor TSpellCheck.Create;
 begin
   inherited;
+  fAltSuggestions := TStringList.Create;
+  fSuggestions := TStringList.Create;
+  fProvideSuggestions := true;
   fCamelCaseWords := TStringList.Create;
   fIngoreFilePath := cDefaultSourcePath;
   fSkippedLineCount := 0;
@@ -115,6 +125,8 @@ end;
 destructor TSpellCheck.Destroy;
 begin
   try
+    fAltSuggestions.DisposeOf;
+    fSuggestions.DisposeOf;
     fCamelCaseWords.DisposeOf;
     fIgnoreCodeFile.DisposeOf;
     fIgnorePathContaining.DisposeOf;
@@ -151,6 +163,151 @@ begin
   fIgnoreContainsLines.Clear;
   fIgnorePathContaining.Clear;
   fTextBeforeQuote := '';
+end;
+
+procedure TSpellCheck.AddSuggestion(const ASuggestion: string; const AOpCount: integer; const AInsert: boolean=false);
+  procedure AddItem;
+  begin
+    if not AInsert then
+      fSuggestions.AddObject(ASuggestion, pointer(AOpCount))
+    else
+      fSuggestions.InsertObject(0, ASuggestion, pointer(AOpCount));
+  end;
+begin
+  if fSuggestions.IndexOf(ASuggestion) = -1 then begin
+    if fSuggestions.Count = 0 then
+      AddItem
+    else begin
+      if AOpCount < NativeInt(fSuggestions.Objects[0]) then begin
+        fAltSuggestions.SetStrings(fSuggestions);
+        fSuggestions.Clear;
+        AddItem;
+      end else if AOpCount = NativeInt(fSuggestions.Objects[0]) then
+        AddItem;
+    end;
+  end;
+end;
+
+procedure TSpellCheck.BuildSuggestions(const AMispelledWord: string);
+const
+  cNormalCase=0;
+  cLowerCase=1;
+var
+  a,
+  operationCount: integer;
+  splitWords: TStringList;
+  procedure LimitItems(const AStringList: TStringList);
+  var
+    a: integer;
+  begin
+    if AStringList.Count > cMaxSuggestions then begin
+      for a := AStringList.Count-1 downto cMaxSuggestions-1 do
+        AStringList.Delete(a);
+      AStringList.Strings[AStringList.Count-1] := AStringList.Strings[AStringList.Count-1] + ' ...';
+    end;
+  end;
+  procedure FindSuggestions(AWord: string; const ACaseType: integer=cNormalCase);
+  var
+    a, k: integer;
+    word,
+    dictionaryWord: string;
+    procedure TypoSearchAlteratives;
+    var
+      a, idx: integer;
+      typoFix, tmp: string;
+    begin
+      for a := 1 to Length(AMispelledWord) do begin
+        if a >= 2 then begin
+          typoFix := AMispelledWord;
+          tmp := typoFix[a];
+          typoFix[a] := typoFix[a-1];
+          typoFix[a-1] := tmp[1];
+          idx := fAltSuggestions.IndexOf(typoFix);
+          if idx >= 0 then begin
+            fSuggestions.Insert(0, typoFix);
+            fAltSuggestions.Delete(idx);
+          end else begin
+            idx := fSuggestions.IndexOf(typoFix);
+            if idx >= 0 then begin
+              fSuggestions.Delete(idx);
+              fSuggestions.Insert(0, typoFix);
+            end;
+          end;
+        end;
+      end;
+    end;
+    procedure ExtractMostLikelyAlts;
+    var
+      a: integer;
+      commonChar: string;
+    begin
+      commonChar := '';
+      for a := 0 to fSuggestions.Count-1 do begin
+        if (commonChar = '') or
+           (commonChar = fSuggestions.Strings[a][1]) then
+          commonChar := fSuggestions.Strings[a][1]
+        else begin
+          commonChar := '';
+          Break;
+        end;
+      end;
+      if (commonChar <> '') and
+         (LowerCase(commonChar) = LowerCase(AMispelledWord[1])) then begin
+        for a := fAltSuggestions.Count-1 downto 0 do begin
+          if LowerCase(fAltSuggestions.Strings[a][1]) <> LowerCase(commonChar) then
+            fAltSuggestions.Delete(a)
+        end;
+      end;
+    end;
+    function NeedsCheck: boolean;
+    begin
+      result := (Abs(dictionaryWord.Length-AMispelledWord.Length) <= cLengthOffset) and
+                ((ACaseType <> cLowerCase) or
+                 (LowerCase(dictionaryWord) = LowerCase(dictionaryWord)));
+    end;
+  begin
+    splitWords.Delimiter := cWordSeparator;
+    splitWords.StrictDelimiter := true;
+    splitWords.CommaText := AWord;
+    for a := 0 to splitWords.Count-1 do begin
+      if ACaseType = cLowerCase then
+        word := LowerCase(splitWords.Strings[a])
+      else
+        word := splitWords.Strings[a];
+      for dictionaryWord in fWordsDict.Keys do begin
+        if NeedsCheck then begin
+          operationCount := EditDistance(word, dictionaryWord);
+          AddSuggestion(dictionaryWord, operationCount);
+        end;
+      end;
+      for k := 0 to fIgnoreWords.Count-1 do begin
+        if NeedsCheck then begin
+          dictionaryWord := fIgnoreWords.Strings[k];
+          operationCount := EditDistance(word, dictionaryWord);
+          AddSuggestion(fIgnoreWords.Strings[k], operationCount, true);
+        end;
+      end;
+      ExtractMostLikelyAlts;
+      TypoSearchAlteratives;
+    end;
+  end;
+begin
+  splitWords := TStringList.Create;
+  fSuggestions.Clear;
+  fAltSuggestions.Clear;
+  try
+    FindSuggestions(AMispelledWord);
+    if LowerCase(AMispelledWord) <> AMispelledWord then
+      FindSuggestions(AMispelledWord, cLowerCase);
+    if fSuggestions.Count > cMaxSuggestions then begin
+      for a := fSuggestions.Count-1 downto cMaxSuggestions-1 do
+        fSuggestions.Delete(a);
+    end;
+    LimitItems(fSuggestions);
+    LimitItems(fAltSuggestions);
+  finally
+    splitWords.DisposeOf;
+  end;
 end;
 
 function TSpellCheck.Run: boolean;
@@ -270,15 +427,15 @@ end;
 
 function TSpellCheck.IsCommentLine(const ALine: string): boolean;
 begin
-  if fIgnorelinesSymbol= '' then begin
+  if fMultiCommentSym = '' then begin
     if fTextBeforeQuote.Contains(cSpellCheckOff) then
-      fIgnorelinesSymbol := cSpellCheckOn
+      fMultiCommentSym := cSpellCheckOn
     else if fTextBeforeQuote.Contains('{') then
-      fIgnorelinesSymbol := '}'
+      fMultiCommentSym := '}'
     else if fTextBeforeQuote.Contains('(*') then
-      fIgnorelinesSymbol := '*)'
+      fMultiCommentSym := '*)'
     else if fTextBeforeQuote.Contains('<html>') then
-      fIgnorelinesSymbol := '</html>'
+      fMultiCommentSym := '</html>'
     else if ALine.Contains('SELECT') or
             ALine.Contains('TABLE') or
             ALine.Contains('INSERT') or
@@ -292,37 +449,37 @@ begin
             ALine.Contains('INNER JOIN') or
             InIgnoreCodeFile(fTextBeforeQuote) then begin
       if fIsDFM then
-        fIgnorelinesSymbol := cSkipLineEndStringDFM
+        fMultiCommentSym := cSkipLineEndStringDFM
       else
-        fIgnorelinesSymbol := cSkipLineEndString;
+        fMultiCommentSym := cSkipLineEndString;
     end else if fTextBeforeQuote.StartsWith('function GetIcon(') or
-            fTextBeforeQuote.StartsWith('function ChartTypeText(') or
-            fTextBeforeQuote.StartsWith('function PieChartTypeText(') or
-            fTextBeforeQuote.StartsWith('procedure TwcPieChart.AfterLoadDFMValues;') then
-      fIgnorelinesSymbol := cSkipLineEndOfFunctionBlock;
+                fTextBeforeQuote.StartsWith('function ChartTypeText(') or
+                fTextBeforeQuote.StartsWith('function PieChartTypeText(') or
+                fTextBeforeQuote.StartsWith('procedure TwcPieChart.AfterLoadDFMValues;') then
+      fMultiCommentSym := cSkipLineEndOfFunctionBlock;
   end else begin
     Inc(fSkippedLineCount);
     if not fIsDFM then begin
-      if (fIgnorelinesSymbol = cSkipLineEndOfFunctionBlock) and
-         (fUntrimmedLine.StartsWith(fIgnorelinesSymbol)) then
-        fIgnorelinesSymbol := ''
-      else if ((fIgnorelinesSymbol = cSkipLineEndString) or (fIgnorelinesSymbol = '</html>')) and
+      if (fMultiCommentSym = cSkipLineEndOfFunctionBlock) and
+         (fUntrimmedLine.StartsWith(fMultiCommentSym)) then
+        fMultiCommentSym := ''
+      else if ((fMultiCommentSym = cSkipLineEndString) or (fMultiCommentSym = '</html>')) and
               (fSkippedLineCount > cSkippedLineCountLimit) then //break out if limit is reached, eg </ html> instead of </html>
-        fIgnorelinesSymbol := '';
+        fMultiCommentSym := '';
     end;
   end;
   result := (ALine.Contains('//')) or
-            (fIgnorelinesSymbol <> '') or
+            (fMultiCommentSym <> '') or
             (ALine.StartsWith('function')) or
             (ALine.StartsWith('procedure')) or
             (ALine.StartsWith('  function')) or
             (ALine.StartsWith('  procedure'));
-  if (fIgnorelinesSymbol <> '') then begin
-    if (((fIsDFM) and ((ALine.StartsWith(fIgnorelinesSymbol)))) or
-        ((not fIsDFM) and (ALine.Contains(fIgnorelinesSymbol)))) then
-      fIgnorelinesSymbol := '';
+  if (fMultiCommentSym <> '') then begin
+    if (((fIsDFM) and ((ALine.StartsWith(fMultiCommentSym)))) or
+        ((not fIsDFM) and (ALine.Contains(fMultiCommentSym)))) then
+      fMultiCommentSym := '';
   end;
-  if fIgnorelinesSymbol = '' then
+  if fMultiCommentSym = '' then
     fSkippedLineCount := 0;
 end;
 
@@ -351,6 +508,11 @@ var
   begin
     result := false;
     fErrors.Add('Error: '+AError);
+    if fProvideSuggestions then begin
+      BuildSuggestions(AError);
+      fErrors.Add('Suggestions: '+fSuggestions.CommaText);
+      fErrors.Add('Alternatives: '+fAltSuggestions.CommaText);
+    end;
     fErrors.Add('File name: '+AFilename);
     fErrors.Add('Line number: '+IntToStr(i+1));
     fErrors.Add('Line text: '+fUntrimmedLine);
@@ -386,7 +548,7 @@ var
           result := Trim(sl.Strings[0]);
       end;
     finally
-      sl.Free;
+      sl.DisposeOf;
     end;
   end;
   function CheckCamelCaseWords(AWord: string; const ALogError: boolean=true): boolean;
@@ -408,7 +570,7 @@ var
   end;
 begin
   result := true;
-  fIgnorelinesSymbol := '';
+  fMultiCommentSym := '';
   fIsDFM := ExtractFileExt(AFilename) = '.dfm';
   fSourceFile.LoadFromFile(AFilename);
   fIgnoreNextFirstWord := false;
@@ -440,7 +602,7 @@ begin
           if (not Trim(theStr).StartsWith('<')) and //ignore html
              (ExtractFilePath(Trim(theStr)) = '') then begin //ignore file paths
             theStr := theStr.Replace('&', ''); //underlining menu items
-            if NeedsSpellCheck(lineStr) then begin
+            if NeedsSpellCheck(theStr) then begin
               if IsGuid(theStr) then
                 fLineWords.DelimitedText := ''
               else begin
@@ -477,7 +639,7 @@ begin
                           if not okWithNextWord then begin
                             ok := CheckCamelCaseWords(theWord, false);
                             if not ok then 
-                              AddError(theWord+'/'+theWord+nextFirstWord+'/'+nextFirstWord);
+                              AddError(theWord+nextFirstWord+cWordSeparator+theWord+cWordSeparator+nextFirstWord);
                           end else
                             fIgnoreNextFirstWord := true;
                         end else
@@ -671,6 +833,33 @@ begin
       break;
   end;
   {$WARNINGS ON}
+end;
+
+function TSpellCheck.EditDistance(const AFromString, AToString: string): integer;
+var
+  matrix: array of array of integer;
+  i, k, cost: integer;
+begin
+  SetLength(matrix, Length(AFromString)+1);
+  for i := Low(matrix) to High(matrix) do
+    SetLength(matrix[i], Length(AToString)+1);
+  for i := Low(matrix) to High(matrix) do begin
+    matrix[i, 0] := i;
+    for k := Low(matrix[i]) to High(matrix[i]) do
+      matrix[0, k] := k;
+  end;
+  for i := Low(matrix)+1 to High(matrix) do begin
+    for k := Low(matrix[i])+1 to High(matrix[i]) do begin
+      if AFromString[i] = AToString[k] then
+        cost := 0
+      else
+        cost := 1;
+      matrix[i, k] := Min(Min(matrix[i-1, k] + 1,
+                              matrix[i,   k-1] + 1),
+                              matrix[i-1, k-1] + cost);
+    end;
+  end;
+  result := matrix[Length(AFromString), Length(AToString)];
 end;
 
 end.

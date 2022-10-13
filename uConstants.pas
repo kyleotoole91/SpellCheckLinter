@@ -4,10 +4,13 @@ interface
 
 const
   cMaxStringLengthDFM=64;
+  cMaxSuggestions=100;
+  cLengthOffset=3;
   cGuidLen=36;
   cFileExtLen=5; //includes period eg .jpeg = 5
   cMinCheckLength=3; //there must be X number of chars in order for it to get checked
   cIgnoreCamelPrefixLength=4; //there must be X number of chars in order for it to get checked
+  cWordSeparator='/';
   cSkipLineEndString=';';
   cSkipLineEndStringDFM=';';
   cSpellCheckOff='//SPELL_CHECK_OFF';
