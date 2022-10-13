@@ -33,7 +33,7 @@ type
     fFileExtFilter: string;
     fSourcePath: string;
     fLanguageFilename: string;
-    fMultiCommentSym: string;
+    fIgnorelinesSymbol: string;
     fWordsDict: TDictionary<string, string>;
     fRecursive: boolean;
     fErrorWords: TStringList;
@@ -47,7 +47,7 @@ type
     procedure SetLanguageFilename(const Value: string);
     function NeedsSpellCheck(const AValue: string): boolean;
     function IsNumeric(const AString: string): boolean;
-    function IsCommentLine(const ALine: string): boolean;
+    function IsIgnoreLine(const ALine: string): boolean;
     function IsGuid(const ALine: string): boolean;
     function PosOfNextQuote(const AString: string; const AChar: string): integer;
     function SpellCheckFile(const AFilename: string): boolean;
@@ -268,17 +268,17 @@ begin
   end;
 end;
 
-function TSpellCheck.IsCommentLine(const ALine: string): boolean;
+function TSpellCheck.IsIgnoreLine(const ALine: string): boolean;
 begin
-  if fMultiCommentSym = '' then begin
+  if fIgnorelinesSymbol= '' then begin
     if fTextBeforeQuote.Contains(cSpellCheckOff) then
-      fMultiCommentSym := cSpellCheckOn
+      fIgnorelinesSymbol := cSpellCheckOn
     else if fTextBeforeQuote.Contains('{') then
-      fMultiCommentSym := '}'
+      fIgnorelinesSymbol := '}'
     else if fTextBeforeQuote.Contains('(*') then
-      fMultiCommentSym := '*)'
+      fIgnorelinesSymbol := '*)'
     else if fTextBeforeQuote.Contains('<html>') then
-      fMultiCommentSym := '</html>'
+      fIgnorelinesSymbol := '</html>'
     else if ALine.Contains('SELECT') or
             ALine.Contains('TABLE') or
             ALine.Contains('INSERT') or
@@ -292,37 +292,37 @@ begin
             ALine.Contains('INNER JOIN') or
             InIgnoreCodeFile(fTextBeforeQuote) then begin
       if fIsDFM then
-        fMultiCommentSym := cSkipLineEndStringDFM
+        fIgnorelinesSymbol := cSkipLineEndStringDFM
       else
-        fMultiCommentSym := cSkipLineEndString;
+        fIgnorelinesSymbol := cSkipLineEndString;
     end else if fTextBeforeQuote.StartsWith('function GetIcon(') or
             fTextBeforeQuote.StartsWith('function ChartTypeText(') or
             fTextBeforeQuote.StartsWith('function PieChartTypeText(') or
             fTextBeforeQuote.StartsWith('procedure TwcPieChart.AfterLoadDFMValues;') then
-      fMultiCommentSym := cSkipLineEndOfFunctionBlock;
+      fIgnorelinesSymbol := cSkipLineEndOfFunctionBlock;
   end else begin
     Inc(fSkippedLineCount);
     if not fIsDFM then begin
-      if (fMultiCommentSym = cSkipLineEndOfFunctionBlock) and
-         (fUntrimmedLine.StartsWith(fMultiCommentSym)) then
-        fMultiCommentSym := ''
-      else if ((fMultiCommentSym = cSkipLineEndString) or (fMultiCommentSym = '</html>')) and
+      if (fIgnorelinesSymbol = cSkipLineEndOfFunctionBlock) and
+         (fUntrimmedLine.StartsWith(fIgnorelinesSymbol)) then
+        fIgnorelinesSymbol := ''
+      else if ((fIgnorelinesSymbol = cSkipLineEndString) or (fIgnorelinesSymbol = '</html>')) and
               (fSkippedLineCount > cSkippedLineCountLimit) then //break out if limit is reached, eg </ html> instead of </html>
-        fMultiCommentSym := '';
+        fIgnorelinesSymbol := '';
     end;
   end;
   result := (ALine.Contains('//')) or
-            (fMultiCommentSym <> '') or
+            (fIgnorelinesSymbol <> '') or
             (ALine.StartsWith('function')) or
             (ALine.StartsWith('procedure')) or
             (ALine.StartsWith('  function')) or
             (ALine.StartsWith('  procedure'));
-  if (fMultiCommentSym <> '') then begin
-    if (((fIsDFM) and ((ALine.StartsWith(fMultiCommentSym)))) or
-        ((not fIsDFM) and (ALine.Contains(fMultiCommentSym)))) then
-      fMultiCommentSym := '';
+  if (fIgnorelinesSymbol <> '') then begin
+    if (((fIsDFM) and ((ALine.StartsWith(fIgnorelinesSymbol)))) or
+        ((not fIsDFM) and (ALine.Contains(fIgnorelinesSymbol)))) then
+      fIgnorelinesSymbol := '';
   end;
-  if fMultiCommentSym = '' then
+  if fIgnorelinesSymbol = '' then
     fSkippedLineCount := 0;
 end;
 
@@ -361,11 +361,14 @@ var
   var
     a: integer;
   begin
-    result := false;
-    for a := 0 to fIgnoreContainsLines.Count-1 do begin
-      result := lineStr.Contains(fIgnoreContainsLines.Strings[a]);
-      if result then
-        Break;
+    result := (not IsIgnoreLine(lineStr)) and
+              (fIgnoreLines.IndexOf(Trim(lineStr)) = -1);
+    if not result then begin
+      for a := 0 to fIgnoreContainsLines.Count-1 do begin
+        result := lineStr.Contains(fIgnoreContainsLines.Strings[a]);
+        if result then
+          Break;
+      end;
     end;
   end;
   function FirstWordNextLine: string;
@@ -408,7 +411,7 @@ var
   end;
 begin
   result := true;
-  fMultiCommentSym := '';
+  fIgnorelinesSymbol := '';
   fIsDFM := ExtractFileExt(AFilename) = '.dfm';
   fSourceFile.LoadFromFile(AFilename);
   fIgnoreNextFirstWord := false;
@@ -421,9 +424,7 @@ begin
       else
         fTextBeforeQuote := lineStr;
       if (lineStr <> '') and
-         (not IsCommentLine(lineStr)) and
-         (not ContainsIgnore) and
-         (fIgnoreLines.IndexOf(Trim(lineStr)) = -1) then begin
+         (not ContainsIgnore) then begin
         itrCount := 0;
         while Pos(fQuoteSym, lineStr) >= 1 do begin //while the line has string literals
           Inc(itrCount);

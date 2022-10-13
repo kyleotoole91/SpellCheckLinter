@@ -24,7 +24,7 @@ uses
     procedure NoErrorsMsg;
     begin
       if ParamStr(cHalt) <> '0' then begin
-        Writeln('Press Enter to close');
+        Writeln('Press Enter to close or R to restart');
         ReadLn(input);
       end;
     end;
@@ -97,7 +97,7 @@ uses
         if spellCheck.Errors.Count > 0 then begin
           if ParamStr(cHalt) <> '0' then begin
             if (spellCheck.ErrorsWords.Count > 0) then begin
-              Writeln('Would you like to add these words to '+cIgnoreWordsName+'? Y/N');
+              Writeln('Would you like to add these words to '+cIgnoreWordsName+'? Y/N (R to run again');
             if ParamStr(cExtFilter) <> '0' then
               Readln(input);
             if (input = 'y') or (input = 'Y') then
