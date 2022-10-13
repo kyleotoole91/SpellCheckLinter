@@ -47,7 +47,7 @@ type
     procedure SetLanguageFilename(const Value: string);
     function NeedsSpellCheck(const AValue: string): boolean;
     function IsNumeric(const AString: string): boolean;
-    function IsIgnoreLine(const ALine: string): boolean;
+    function IsCommentLine(const ALine: string): boolean;
     function IsGuid(const ALine: string): boolean;
     function PosOfNextQuote(const AString: string; const AChar: string): integer;
     function SpellCheckFile(const AFilename: string): boolean;
@@ -268,7 +268,7 @@ begin
   end;
 end;
 
-function TSpellCheck.IsIgnoreLine(const ALine: string): boolean;
+function TSpellCheck.IsCommentLine(const ALine: string): boolean;
 begin
   if fIgnorelinesSymbol= '' then begin
     if fTextBeforeQuote.Contains(cSpellCheckOff) then
@@ -361,14 +361,11 @@ var
   var
     a: integer;
   begin
-    result := (not IsIgnoreLine(lineStr)) and
-              (fIgnoreLines.IndexOf(Trim(lineStr)) = -1);
-    if not result then begin
-      for a := 0 to fIgnoreContainsLines.Count-1 do begin
-        result := lineStr.Contains(fIgnoreContainsLines.Strings[a]);
-        if result then
-          Break;
-      end;
+    result := false;
+    for a := 0 to fIgnoreContainsLines.Count-1 do begin
+      result := lineStr.Contains(fIgnoreContainsLines.Strings[a]);
+      if result then
+        Break;
     end;
   end;
   function FirstWordNextLine: string;
@@ -424,7 +421,9 @@ begin
       else
         fTextBeforeQuote := lineStr;
       if (lineStr <> '') and
-         (not ContainsIgnore) then begin
+         (not IsCommentLine(lineStr)) and
+         (not ContainsIgnore) and
+         (fIgnoreLines.IndexOf(Trim(lineStr)) = -1) then begin
         itrCount := 0;
         while Pos(fQuoteSym, lineStr) >= 1 do begin //while the line has string literals
           Inc(itrCount);
