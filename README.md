@@ -15,6 +15,7 @@ Startup parameters (optional):
 4) Scan folders recursively (1)
 5) Add to ignore prompt (1)
 6) Path for the ignore files (.\)
+7) Toggle suggestions (1)
 
 Ignore files, must be in the same dir as exe, or you change the IgnoreFilePath classs property:
 The IgnoreWords file will ignore the word if the word is in this file.
