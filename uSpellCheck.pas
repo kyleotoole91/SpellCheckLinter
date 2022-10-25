@@ -11,7 +11,8 @@ type
   TSpellCheck = class(TObject)
   strict private
     fThreadCount: integer;
-    fCriticalSection: TCriticalSection;
+    fCSErrorLog,
+    fCSThreadCount: TCriticalSection;
     fIngoreFilePath: string;
     fIgnoreCodeFile: TStringList;
     fWordCheckCount: uInt64;
@@ -147,17 +148,18 @@ begin
   fIgnoreCodeFile := TStringList.Create;
   fQuoteSym := cDefaultQuote;
   fRecursive := true;
-  fCriticalSection := TCriticalSection.Create;
+  fCSErrorLog := TCriticalSection.Create;
+  fCSThreadCount := TCriticalSection.Create;
   Clear;
 end;
 
 procedure TSpellCheck.DecrementThreadCount;
 begin
-  fCriticalSection.Enter;
+  fCSThreadCount.Enter;
   try
     Inc(fThreadCount, -1);
   finally
-    fCriticalSection.Leave;
+    fCSThreadCount.Leave;
   end;
 end;
 
@@ -174,7 +176,8 @@ begin
     fWordsDict.DisposeOf;
     fLanguageFile.DisposeOf;
     fErrors.DisposeOf;
-    fCriticalSection.DisposeOf;
+    fCSErrorLog.DisposeOf;
+    fCSThreadCount.DisposeOf;
   finally
     inherited;
   end;
@@ -229,7 +232,7 @@ begin
         end;
       end;
       while fThreadCount > 0 do
-        Sleep(1000);
+        Sleep(100);
     except
       on e: exception do
         fErrors.Add('Exception raised: '+e.ClassName+' '+e.Message);
@@ -281,11 +284,11 @@ end;
 
 procedure TSpellCheck.IncWordCheckCount;
 begin
-  fCriticalSection.Enter;
+  fCSErrorLog.Enter;
   try
     Inc(fWordCheckCount);
   finally
-    fCriticalSection.Leave;
+    fCSErrorLog.Leave;
   end;
 end;
 
@@ -318,7 +321,7 @@ end;
 procedure TSpellCheck.AddError(const AError: string; const AFilename: string; const ALineNumber: integer; const AUnTrimmedLine: string;
                                const ASuggestions: string=''; const AAltSuggestions: string='');
 begin
-  fCriticalSection.Enter;
+  fCSErrorLog.Enter;
   try
     fErrors.Add('Error: '+AError);
     if ASuggestions <> '' then
@@ -331,17 +334,17 @@ begin
     fErrors.Add(' ');
     fErrorWords.Add(AError);
   finally
-    fCriticalSection.Leave;
+    fCSErrorLog.Leave;
   end;
 end;
 
 procedure TSpellCheck.AddError(const AError, AFilename: string);
 begin
-  fCriticalSection.Enter;
+  fCSErrorLog.Enter;
   try
     fErrors.Add('Error checking file '+AFilename+': '+AError);
   finally
-    fCriticalSection.Leave;
+    fCSErrorLog.Leave;
   end;
 end;
 
@@ -556,8 +559,8 @@ begin
                             ok := CheckCamelCaseWords(theWord, false);
                             if not ok then begin
                               result := false;
-                              fOwner.AddError(theWord+nextFirstWord+cWordSeparator+theWord+cWordSeparator+nextFirstWord, fFilename, i+1,
-                                              fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
+                              fOwner.AddError(theWord+nextFirstWord+cWordSeparator+theWord+cWordSeparator+nextFirstWord,
+                                              fFilename, i+1, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
                             end;
                           end else
                             fIgnoreNextFirstWord := true;
