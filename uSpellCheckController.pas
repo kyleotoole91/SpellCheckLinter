@@ -10,15 +10,17 @@ const
   cHalt=5; //when 0 the program will stop when finished
   cIgnoreFilepath=6; //defaulted to working dir
   cProvideSuggestions=7; //toggle suggestions (these take time to generate)
+  cExitCodeOk=0;
+  cExitCodeErrors=1;
 
-  procedure RunspellCheck;
+  function RunSpellCheck: integer;
 
 implementation
 
 uses
   System.SysUtils, DateUtils, uSpellCheckLinter, uConstants;
 
-  procedure RunSpellCheck;
+  function RunSpellCheck: integer;
   var
     input: string;
     spellCheck: TSpellCheckLinter;
@@ -70,6 +72,7 @@ uses
     end;
   begin
     input := '';
+    result := cExitCodeOk;
     spellCheck := TSpellCheckLinter.Create;
     try
       if (Trim(ParamStr(cLanguageFilename)) = 'help') or
@@ -99,6 +102,7 @@ uses
         Writeln(' ');
         WriteErrors;
         if spellCheck.Errors.Count > 0 then begin
+          result := cExitCodeErrors;
           if ParamStr(cHalt) <> '0' then begin
             if (spellCheck.ErrorsWords.Count > 0) then begin
               Writeln('Would you like to add these words to '+cIgnoreWordsName+'? Y/N or R to run again');

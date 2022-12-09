@@ -13,7 +13,7 @@ uses
 
 begin
   try
-    RunSpellCheck;
+    ExitCode := RunSpellCheck;
   except
     on e: Exception do begin
       Writeln(e.ClassName, ': ', e.Message);
