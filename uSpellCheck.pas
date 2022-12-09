@@ -45,7 +45,7 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    function Run: boolean;
+    procedure Run;
     function AddToIgnoreFile: boolean;
     procedure IncWordCheckCount;
     function InIgnoreCodeFile(const AText: string): boolean;
@@ -89,13 +89,22 @@ type
     fMultiCommentSym: string;
     fIsDFM: boolean;
     fFilename: string;
+    fLineNum: integer;
     fCamelCaseWords: TStringList;
     fLineWords: TStringList;
+    fLineStr: string;
+    fTheStr: string;
+    fTheWord: string;
     procedure CleanLineWords;
+    procedure PrepareLineString;
+    procedure BuildLineWords(AString: string);
     function EditDistance(const AFromString, AToString: string): integer;
     procedure AddSuggestion(const ASuggestion: string; const AOpCount: integer; const AInsert: boolean=false);
     procedure BuildSuggestions(const AMispelledWord: string);
     procedure BuildCamelCaseWords(const AArr: TArray<string>);
+    procedure LimitItems(const AStringList: TStringList);
+    procedure InitNewFile;
+    procedure InitNewLine(const ALineIdx: integer);
     function IsGuid(const ALine: string): boolean;
     function SanitizeWord(const AWord: string; const ARemovePeriods: boolean=true): string;
     function RemoveStartEndQuotes(const AStr: string): string;
@@ -106,11 +115,19 @@ type
     function IsSQL(const ALine: string): boolean;
     function SpelledCorrectly(const AWord: string; const ATryLower: boolean=true): boolean;
     function IsNumeric(const AString: string): boolean;
-    procedure LimitItems(const AStringList: TStringList);
+    function ContainsIgnore(const ALine: string): boolean;
+    function CheckCamelCaseWords(AWord: string; const ALogError: boolean=true): boolean;
+    function FirstWordNextLine: string;
+    function IsFileExtension(const AStr: string): boolean;
+    procedure SpellCheckWithoutRegex(const ALineWordIndex: integer);
+    procedure SpellCheckWord(const AIsLast: boolean);
+    function IgnoreLine: boolean;
+    function IgnoreString: boolean;
+    procedure CheckEachWordInString;
   public
     constructor Create(const AOwner: TSpellCheck); reintroduce;
     destructor Destroy; override;
-    function Run: boolean;
+    procedure Run;
     property Filename: string read fFilename write fFilename;
     property ProvideSuggestions: boolean read fProvideSuggestions write fProvideSuggestions;
     property Owner: TSpellCheck read fOwner;
@@ -213,7 +230,7 @@ begin
   fIgnorePathContaining.Clear;
 end;
 
-function TSpellCheck.Run: boolean;
+procedure TSpellCheck.Run;
 var
   filenames: TStringDynArray;
   filename: string;
@@ -250,8 +267,6 @@ begin
     end;
   finally
     fEndTime := Now;
-    result := (fErrorWords.Count = 0) and
-              (fErrors.Count = 0);
   end;
 end;
 
@@ -438,170 +453,145 @@ begin
   inherited;
 end;
 
-function TSpellCheckFile.Run: boolean;
-const
-  cBreakout=1000;
+function TSpellCheckFile.ContainsIgnore(const ALine: string): boolean;
 var
-  itrCount: integer;
-  i, j: integer;
-  theStr: string;
-  lineStr: string;
-  theWord: string;
-  fileExt: string;
-  lastWordChecked: string;
-  nextFirstWord: string;
-  ok, okWithNextWord: boolean;
-  function ContainsIgnore: boolean;
-  var
-    a: integer;
-  begin
-    result := false;
-    for a := 0 to fOwner.IgnoreContainsLines.Count-1 do begin
-      result := lineStr.Contains(fOwner.IgnoreContainsLines.Strings[a]);
-      if result then
-        Break;
-    end;
-  end;
-  function FirstWordNextLine: string;
-  var
-    str: string;
-    sl: TStringList;
-  begin
-    result := '';
-    sl := TStringList.Create;
-    try
-      sl.Delimiter := ' ';
-      if i+1 <= fSourceFile.Count-1 then begin
-        str := fSourceFile.Strings[i+1];
-        str := Copy(str, Pos(fOwner.QuoteSym, str)+1, str.Length);
-        str := Copy(str, 1, PosOfNextQuote(str, fOwner.QuoteSym)-1);
-        sl.CommaText := Str;
-        if sl.Count >= 1 then
-          result := Trim(sl.Strings[0]);
-      end;
-    finally
-      sl.DisposeOf;
-    end;
-  end;
-  function CheckCamelCaseWords(AWord: string; const ALogError: boolean=true): boolean;
-  var
-    k: integer;
-    hasError: boolean;
-  begin
-    hasError := false;
-    BuildCamelCaseWords(TRegEx.Split(AWord, cRegExCamelPascalCaseSpliter));
-    for k := 0 to fCamelCaseWords.Count-1 do begin //for each camel case word
-      AWord := RemoveEscappedQuotes(fCamelCaseWords.Strings[k]);
-      if not SpelledCorrectly(AWord) then begin
-        hasError := true;
-        if ALogError then
-          fOwner.AddError(AWord, fFilename, i+1, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
-      end;
-    end;
-    result := not hasError;
-  end;
+  a: integer;
 begin
-  fSkippedLineCount := 0;
-  result := true;
-  fMultiCommentSym := '';
-  fIsDFM := ExtractFileExt(fFilename) = '.dfm';
-  fSourceFile.LoadFromFile(fFilename);
-  fIgnoreNextFirstWord := false;
-  for i:=0 to fSourceFile.Count-1 do begin
-    try
-      fUnTrimmedLine := fSourceFile.Strings[i];
-      lineStr := Trim(fSourceFile.Strings[i]);
-      if Pos(fOwner.QuoteSym, lineStr) >= 1 then
-        fTextBeforeQuote := Copy(lineStr, 1, Pos(fOwner.QuoteSym, lineStr)-1)
-      else
-        fTextBeforeQuote := lineStr;
-      if (lineStr <> '') and
-         (not IsCommentLine(lineStr)) and
-         (not ContainsIgnore) and
-         (fOwner.IgnoreLines.IndexOf(Trim(lineStr)) = -1) then begin
-        itrCount := 0;
-        while Pos(fOwner.QuoteSym, lineStr) >= 1 do begin //while the line has string literals
-          Inc(itrCount);
-          lineStr := Copy(lineStr, Pos(fOwner.QuoteSym, lineStr)+1, lineStr.Length);
-          if itrCount >= cBreakout then
-            raise Exception.Create('An infinite loop has been detected in '+fFilename+' on line '+IntToStr(i+1)+'. '+
-                                   'Please check the syntax of file. ');
-          theStr := Copy(lineStr, 1, PosOfNextQuote(lineStr, fOwner.QuoteSym)-1);
-          fPossibleTruncation := fIsDFM and (theStr.Length = cMaxStringLengthDFM);
-          if Pos(theStr, lineStr)+theStr.Length <> 0 then //remove the string from the line
-            lineStr := Copy(lineStr, Pos(theStr, lineStr)+theStr.Length+1, lineStr.Length)
-          else
-            lineStr := Copy(lineStr, 3, lineStr.Length); //if empty string, remove the next two chars
-          if (not Trim(theStr).StartsWith('<')) and //ignore html
-             (ExtractFilePath(Trim(theStr)) = '') or (Pos( ':', theStr) > 2) then begin //ignore file paths
-            theStr := theStr.Replace('&', ''); //underlining menu items
-            if NeedsSpellCheck(theStr) then begin
-              if IsGuid(theStr) then
-                fLineWords.DelimitedText := ''
-              else begin
-                theStr := SanitizeWord(theStr, false);
-                if theStr.EndsWith(fOwner.QuoteSym) then //strings ending with double quotes was causing the last char to get removed when setting delimited text
-                  theStr := Copy(theStr, 1, theStr.Length-1)+' '+fOwner.QuoteSym;
-                fLineWords.DelimitedText := theStr;
-              end;
-              CleanLineWords;
-              theWord := '';
-              for j := 0 to fLineWords.Count-1 do begin //for each word in the line
-                if (fIgnoreNextFirstWord) and
-                   (j = 0) then
-                  fIgnoreNextFirstWord := false
-                else begin
-                  theWord := SanitizeWord(fLineWords.Strings[j], false);
-                  if Trim(theWord) <> '' then begin
-                    lastWordChecked := theWord;
-                    if theWord.Contains('''') then begin //the regex will split on this. You don't normally see apostrophies in camelCase or PascalCase words anyway
-                      lineStr := lineStr.Remove(pos(fLineWords.Strings[j],lineStr)-1, theWord.Length);
-                      theWord := RemoveEscappedQuotes(theWord);
-                      if not SpelledCorrectly(theWord) then begin
-                        result := false;
-                        fOwner.AddError(theWord, fFilename, i+1, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
-                      end;
-                    end else begin
-                      fileExt := ExtractFileExt(theWord); //ignore exts
-                      if fileExt.Length = 1 then
-                        fileExt := '';
-                      if (fileExt = '') then begin
-                        nextFirstWord := FirstWordNextLine;
-                        if (fPossibleTruncation) and
-                           (j = fLineWords.Count-1) and
-                           (nextFirstWord <> '')then begin
-                          okWithNextWord := CheckCamelCaseWords(theWord+nextFirstWord, false);
-                          if not okWithNextWord then begin
-                            ok := CheckCamelCaseWords(theWord, false);
-                            if not ok then begin
-                              result := false;
-                              fOwner.AddError(theWord+nextFirstWord+cWordSeparator+theWord+cWordSeparator+nextFirstWord,
-                                              fFilename, i+1, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
-                            end;
-                          end else
-                            fIgnoreNextFirstWord := true;
-                        end else
-                          CheckCamelCaseWords(theWord);
-                      end;
-                    end;
-                  end;
-                end;
-              end;
-            end;
-          end else
-            Break;
-        end;
-      end;
-    except
-      on e: exception do begin
-        result := false;
-        fOwner.AddError('Exception raised: '+e.ClassName+' '+e.Message, fFilename);
-      end;
+  result := false;
+  for a := 0 to fOwner.IgnoreContainsLines.Count-1 do begin
+    result := ALine.Contains(fOwner.IgnoreContainsLines.Strings[a]);
+    if result then
+      Break;
+  end;
+end;
+
+function TSpellCheckFile.CheckCamelCaseWords(AWord: string; const ALogError: boolean=true): boolean;
+var
+  k: integer;
+  hasError: boolean;
+begin
+  hasError := false;
+  BuildCamelCaseWords(TRegEx.Split(AWord, cRegExCamelPascalCaseSpliter));
+  for k := 0 to fCamelCaseWords.Count-1 do begin
+    AWord := RemoveEscappedQuotes(fCamelCaseWords.Strings[k]);
+    if not SpelledCorrectly(AWord) then begin
+      hasError := true;
+      if ALogError then
+        fOwner.AddError(AWord, fFilename, fLineNum, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
+    end;
+  end;
+  result := not hasError;
+end;
+
+procedure TSpellCheckFile.CheckEachWordInString;
+var
+  j: integer;
+begin
+  for j := 0 to fLineWords.Count-1 do begin
+    fTheWord := SanitizeWord(fLineWords.Strings[j], false);
+    if (fIgnoreNextFirstWord) and
+       (j = 0) then
+      fIgnoreNextFirstWord := false
+    else if Trim(fTheWord) <> '' then begin
+      if fTheWord.Contains('''') then begin //the regex will split on quotes. You don't normally see quotes in camelCase or PascalCase words anyway
+        SpellCheckWithoutRegEx(j);
+      end else if not IsFileExtension(fTheWord) then
+        SpellCheckWord(j = fLineWords.Count-1);
     end;
   end;
 end;
 
-procedure TSpellCheckFile.BuildCamelCaseWords(const AArr: TArray<string>); //eg msmWeb, don't check msm
+function TSpellCheckFile.FirstWordNextLine: string;
+var
+  str: string;
+  sl: TStringList;
+begin
+  result := '';
+  sl := TStringList.Create;
+  try
+    sl.Delimiter := ' ';
+    if fLineNum <= fSourceFile.Count-1 then begin
+      str := fSourceFile.Strings[fLineNum];
+      str := Copy(str, Pos(fOwner.QuoteSym, str)+1, str.Length);
+      str := Copy(str, 1, PosOfNextQuote(str, fOwner.QuoteSym)-1);
+      sl.CommaText := Str;
+      if sl.Count >= 1 then
+        result := Trim(sl.Strings[0]);
+    end;
+  finally
+    sl.DisposeOf;
+  end;
+end;
+
+procedure TSpellCheckFile.SpellCheckWithoutRegex(const ALineWordIndex: integer);
+begin
+  fLineStr := fLineStr.Remove(pos(fLineWords.Strings[ALineWordIndex], fLineStr)-1, fTheWord.Length);
+  fTheWord := RemoveEscappedQuotes(fTheWord);
+  if not SpelledCorrectly(fTheWord) then
+    fOwner.AddError(fTheWord, fFilename, fLineNum, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
+end;
+
+procedure TSpellCheckFile.SpellCheckWord(const AIsLast: boolean);
+var
+  okWithNextWord: boolean;
+  nextFirstWord: string;
+begin
+  nextFirstWord := FirstWordNextLine;
+  if (fPossibleTruncation) and
+     (AIsLast) and
+     (nextFirstWord <> '') then begin
+    okWithNextWord := CheckCamelCaseWords(fTheWord+nextFirstWord, false);
+    if (not okWithNextWord) and
+       (not CheckCamelCaseWords(fTheWord, false)) then begin
+      fOwner.AddError(fTheWord + nextFirstWord + cWordSeparator + fTheWord + cWordSeparator + nextFirstWord,
+                      fFilename, fLineNum, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
+    end else if (not okWithNextWord) then
+      fIgnoreNextFirstWord := true;
+  end else
+    CheckCamelCaseWords(fTheWord);
+end;
+
+procedure TSpellCheckFile.Run;
+const
+  cBreakout=10000;
+var
+  itrCount: integer;
+  i: integer;
+begin
+  InitNewFile;
+  for i:=0 to fSourceFile.Count-1 do begin
+    try
+      InitNewLine(i);
+      if not IgnoreLine then begin
+        itrCount := 0;
+        while Pos(fOwner.QuoteSym, fLineStr) >= 1 do begin //while the line has string literals
+          try
+            PrepareLineString;
+            if not IgnoreString then begin
+              fTheStr := fTheStr.Replace('&', ''); //underlining menu items
+              if NeedsSpellCheck(fTheStr) then begin
+                BuildLineWords(fTheStr);
+                CleanLineWords;
+                CheckEachWordInString;
+              end;
+            end else
+              Break;
+          finally
+            Inc(itrCount);
+            if itrCount >= cBreakout then
+              raise Exception.Create('An infinite loop has been detected in '+fFilename+' on line '+IntToStr(i+1)+'. '+
+                                     'Please check the syntax of file. ');
+          end;
+        end;
+      end;
+    except
+      on e: exception do
+        fOwner.AddError('Exception raised: '+e.ClassName+' '+e.Message, fFilename);
+    end;
+  end;
+end;
+
+procedure TSpellCheckFile.BuildCamelCaseWords(const AArr: TArray<string>);
 var
   a,
   firstWordIdx,
@@ -623,12 +613,59 @@ begin
     end;
   end;
   if (isCamelCase) and
-     (AArr[firstWordIdx].Length < cIgnoreCamelPrefixLength) then //eg ignore msm in msmWeb
+     (AArr[firstWordIdx].Length < cIgnoreCamelPrefixLength) then //eg ignore abc in abcDEF
     AArr[firstWordIdx] := '';
   for a := 0 to Length(AArr)-1 do begin
     if Trim(AArr[a]) <> '' then
       fCamelCaseWords.Add(AArr[a]);
   end;
+end;
+
+procedure TSpellCheckFile.BuildLineWords(AString: string);
+begin
+  if IsGuid(AString) then
+    fLineWords.DelimitedText := ''
+  else begin
+    AString := SanitizeWord(AString, false);
+    if AString.EndsWith(fOwner.QuoteSym) then //strings ending with double quotes was causing the last char to get removed when setting delimited text
+      AString := Copy(AString, 1, AString.Length-1)+' '+fOwner.QuoteSym;
+    fLineWords.DelimitedText := AString;
+  end;
+end;
+
+function TSpellCheckFile.IgnoreLine: boolean;
+begin
+   result := (fLineStr = '') or
+             (IsCommentLine(fLineStr)) or
+             (ContainsIgnore(fLineStr)) or
+             (fOwner.IgnoreLines.IndexOf(Trim(fLineStr)) >= 0)
+end;
+
+function TSpellCheckFile.IgnoreString: boolean;
+begin
+   result := (Trim(fTheStr).StartsWith('<')) or
+             ((ExtractFilePath(Trim(fTheStr)) <> '') and (Pos( ':', fTheStr) = 2));
+end;
+
+procedure TSpellCheckFile.InitNewFile;
+begin
+  fLineNum := 0;
+  fSkippedLineCount := 0;
+  fMultiCommentSym := '';
+  fIsDFM := ExtractFileExt(fFilename) = '.dfm';
+  fSourceFile.LoadFromFile(fFilename);
+  fIgnoreNextFirstWord := false;
+end;
+
+procedure TSpellCheckFile.InitNewLine(const ALineIdx: integer);
+begin
+  fLineNum := ALineIdx + 1;
+  fUnTrimmedLine := fSourceFile.Strings[ALineIdx];
+  fLineStr := Trim(fSourceFile.Strings[ALineIdx]);
+  if Pos(fOwner.QuoteSym, fLineStr) >= 1 then
+    fTextBeforeQuote := Copy(fLineStr, 1, Pos(fOwner.QuoteSym, fLineStr)-1)
+  else
+    fTextBeforeQuote := fLineStr;
 end;
 
 function TSpellCheckFile.IsCommentLine(const ALine: string): boolean;
@@ -674,6 +711,16 @@ begin
     fSkippedLineCount := 0;
 end;
 
+function TSpellCheckFile.IsFileExtension(const AStr: string): boolean;
+var
+  fileExt: string;
+begin
+  fileExt := ExtractFileExt(AStr); //ignore exts
+  if fileExt.Length = 1 then
+    fileExt := '';
+  result := fileExt <> '';
+end;
+
 function TSpellCheckFile.PosOfNextQuote(const AString, AChar: string): integer;
 var
   str: string;
@@ -697,6 +744,17 @@ begin
       end;
     end;
   end;
+end;
+
+procedure TSpellCheckFile.PrepareLineString;
+begin
+  fLineStr := Copy(fLineStr, Pos(fOwner.QuoteSym, fLineStr)+1, fLineStr.Length);
+  fTheStr := Copy(fLineStr, 1, PosOfNextQuote(fLineStr, fOwner.QuoteSym)-1);
+  fPossibleTruncation := fIsDFM and (fTheStr.Length = cMaxStringLengthDFM);
+  if Pos(fTheStr, fLineStr)+fTheStr.Length <> 0 then //remove the string from the line
+    fLineStr := Copy(fLineStr, Pos(fTheStr, fLineStr)+fTheStr.Length+1, fLineStr.Length)
+  else
+    fLineStr := Copy(fLineStr, 3, fLineStr.Length); //if empty string, remove the next two chars
 end;
 
 function TSpellCheckFile.RemoveEscappedQuotes(const AStr: string): string;
