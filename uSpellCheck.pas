@@ -41,6 +41,7 @@ type
     procedure SetLanguageFilename(const Value: string);
     procedure SpellCheckFile(const AFilename: string);
     function IngoredPathContaining(const AFilename: string): boolean;
+    procedure WaitForThreads;
   public
     constructor Create;
     destructor Destroy; override;
@@ -52,6 +53,7 @@ type
                        const ASuggestions: string=''; const AAltSuggestions: string=''); overload;
     procedure AddError(const AError, AFilename: string); overload;
     procedure DecrementThreadCount;
+    procedure IncrementThreadCount;
     property LanguageFilename: string read fLanguageFilename write SetLanguageFilename;
     property SourcePath: string read fSourcePath write fSourcePath;
     property QuoteSym: string read fQuoteSym write fQuoteSym;
@@ -101,6 +103,7 @@ type
     function PosOfNextQuote(const AString, AChar: string): integer;
     function NeedsSpellCheck(const AValue: string): boolean;
     function IsCommentLine(const ALine: string): boolean;
+    function IsSQL(const ALine: string): boolean;
     function SpelledCorrectly(const AWord: string; const ATryLower: boolean=true): boolean;
     function IsNumeric(const AString: string): boolean;
     procedure LimitItems(const AStringList: TStringList);
@@ -158,6 +161,16 @@ begin
   fCSThreadCount.Enter;
   try
     Inc(fThreadCount, -1);
+  finally
+    fCSThreadCount.Leave;
+  end;
+end;
+
+procedure TSpellCheck.IncrementThreadCount;
+begin
+  fCSThreadCount.Enter;
+  try
+    Inc(fThreadCount);
   finally
     fCSThreadCount.Leave;
   end;
@@ -224,15 +237,13 @@ begin
           filenames := TDirectory.GetFiles(fSourcePath, fFileExtFilter, TSearchOption.soTopDirectoryOnly);
       end;
       for filename in filenames do begin
-        if fIgnoreFiles.IndexOf(ExtractFileName(filename)) = -1 then begin
-          if not IngoredPathContaining(filename) then begin
-            Inc(fFileCount);
-            SpellCheckFile(filename);
-          end;
+        if (fIgnoreFiles.IndexOf(ExtractFileName(filename)) = -1) and
+           (not IngoredPathContaining(filename)) then begin
+          Inc(fFileCount);
+          SpellCheckFile(filename);
         end;
       end;
-      while fThreadCount > 0 do
-        Sleep(100);
+      WaitForThreads;
     except
       on e: exception do
         fErrors.Add('Exception raised: '+e.ClassName+' '+e.Message);
@@ -388,12 +399,17 @@ var
   spellCheckThread: TSpellCheckThread;
 begin
   while fThreadCount >= cMaxThreads do
-    Sleep(100);
-  Inc(fThreadCount);
+    Sleep(10);
   spellCheckThread := TSpellCheckThread.Create(Self);
   spellCheckThread.SpellCheckFile.Filename := AFilename;
   spellCheckThread.SpellCheckFile.ProvideSuggestions := fProvideSuggestions;
   spellCheckThread.Start;
+end;
+
+procedure TSpellCheck.WaitForThreads;
+begin
+  while fThreadCount > 0 do
+    Sleep(10);
 end;
 
 { TSpellCheckFile }
@@ -517,7 +533,7 @@ begin
           else
             lineStr := Copy(lineStr, 3, lineStr.Length); //if empty string, remove the next two chars
           if (not Trim(theStr).StartsWith('<')) and //ignore html
-             (ExtractFilePath(Trim(theStr)) = '') then begin //ignore file paths
+             (ExtractFilePath(Trim(theStr)) = '') or (Pos( ':', theStr) > 2) then begin //ignore file paths
             theStr := theStr.Replace('&', ''); //underlining menu items
             if NeedsSpellCheck(theStr) then begin
               if IsGuid(theStr) then
@@ -626,32 +642,17 @@ begin
       fMultiCommentSym := '*)'
     else if fTextBeforeQuote.Contains('<html>') then
       fMultiCommentSym := '</html>'
-    else if ALine.Contains('SELECT') or
-            ALine.Contains('TABLE') or
-            ALine.Contains('INSERT') or
-            ALine.Contains('UPDATE') or
-            ALine.Contains('DELETE') or
-            ALine.Contains('GROUP BY') or
-            ALine.Contains('ORDER BY') or
-            ALine.Contains(' AND ') or
-            ALine.Contains(' WHERE ') or
-            ALine.Contains('LEFT OUTER JOIN') or
-            ALine.Contains('INNER JOIN') or
+    else if IsSQL(ALine) or
             fOwner.InIgnoreCodeFile(fTextBeforeQuote) then begin
       if fIsDFM then
         fMultiCommentSym := cSkipLineEndStringDFM
       else
         fMultiCommentSym := cSkipLineEndString;
-    end else if fTextBeforeQuote.StartsWith('function GetIcon(') or
-                fTextBeforeQuote.StartsWith('function ChartTypeText(') or
-                fTextBeforeQuote.StartsWith('function PieChartTypeText(') or
-                fTextBeforeQuote.StartsWith('procedure TwcPieChart.AfterLoadDFMValues;') then
-      fMultiCommentSym := cSkipLineEndOfFunctionBlock;
+    end;
   end else begin
     Inc(fSkippedLineCount);
     if not fIsDFM then begin
-      if (fMultiCommentSym = cSkipLineEndOfFunctionBlock) and
-         (fUnTrimmedLine.StartsWith(fMultiCommentSym)) then
+      if (fUnTrimmedLine.StartsWith(fMultiCommentSym)) then
         fMultiCommentSym := ''
       else if ((fMultiCommentSym = cSkipLineEndString) or (fMultiCommentSym = '</html>')) and
               (fSkippedLineCount > cSkippedLineCountLimit) then //break out if limit is reached, eg </ html> instead of </html>
@@ -753,6 +754,21 @@ begin
       Break;
   end;
   {$WARNINGS ON}
+end;
+
+function TSpellCheckFile.IsSQL(const ALine: string): boolean;
+begin
+  result := ALine.Contains('SELECT') or
+            ALine.Contains('TABLE') or
+            ALine.Contains('INSERT') or
+            ALine.Contains('UPDATE') or
+            ALine.Contains('DELETE') or
+            ALine.Contains('GROUP BY') or
+            ALine.Contains('ORDER BY') or
+            ALine.Contains(' AND ') or
+            ALine.Contains(' WHERE ') or
+            ALine.Contains('LEFT OUTER JOIN') or
+            ALine.Contains('INNER JOIN');
 end;
 
 procedure TSpellCheckFile.CleanLineWords;
@@ -975,6 +991,8 @@ begin
   inherited Create(true);
   CoInitialize(nil);
   try
+    if Assigned(AOwner) then
+      AOwner.IncrementThreadCount;
     fSpellCheckFile := TSpellCheckFile.Create(AOwner);
     FreeOnTerminate := true;
   finally
