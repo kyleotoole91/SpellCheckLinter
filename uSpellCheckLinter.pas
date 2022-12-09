@@ -103,26 +103,6 @@ begin
   Clear;
 end;
 
-procedure TSpellCheckLinter.DecrementThreadCount;
-begin
-  fCSThreadCount.Enter;
-  try
-    Inc(fThreadCount, -1);
-  finally
-    fCSThreadCount.Leave;
-  end;
-end;
-
-procedure TSpellCheckLinter.IncrementThreadCount;
-begin
-  fCSThreadCount.Enter;
-  try
-    Inc(fThreadCount);
-  finally
-    fCSThreadCount.Leave;
-  end;
-end;
-
 destructor TSpellCheckLinter.Destroy;
 begin
   try
@@ -238,16 +218,6 @@ begin
     fIgnoreLines.LoadFromFile(fIngoreFilePath+cIgnoreLinesName);
 end;
 
-procedure TSpellCheckLinter.IncWordCheckCount;
-begin
-  fCSErrorLog.Enter;
-  try
-    Inc(fWordCheckCount);
-  finally
-    fCSErrorLog.Leave;
-  end;
-end;
-
 function TSpellCheckLinter.IngoredPathContaining(const AFilename: string): boolean;
 var
   a: integer;
@@ -289,16 +259,6 @@ begin
     fErrors.Add('Line text: '+AUnTrimmedLine);
     fErrors.Add(' ');
     fErrorWords.Add(AError);
-  finally
-    fCSErrorLog.Leave;
-  end;
-end;
-
-procedure TSpellCheckLinter.AddError(const AError, AFilename: string);
-begin
-  fCSErrorLog.Enter;
-  try
-    fErrors.Add('Error checking file '+AFilename+': '+AError);
   finally
     fCSErrorLog.Leave;
   end;
@@ -355,6 +315,46 @@ procedure TSpellCheckLinter.WaitForThreads;
 begin
   while fThreadCount > 0 do
     Sleep(cSleepTime);
+end;
+
+procedure TSpellCheckLinter.DecrementThreadCount;
+begin
+  fCSThreadCount.Enter;
+  try
+    Inc(fThreadCount, -1);
+  finally
+    fCSThreadCount.Leave;
+  end;
+end;
+
+procedure TSpellCheckLinter.IncrementThreadCount;
+begin
+  fCSThreadCount.Enter;
+  try
+    Inc(fThreadCount);
+  finally
+    fCSThreadCount.Leave;
+  end;
+end;
+
+procedure TSpellCheckLinter.IncWordCheckCount;
+begin
+  fCSErrorLog.Enter;
+  try
+    Inc(fWordCheckCount);
+  finally
+    fCSErrorLog.Leave;
+  end;
+end;
+
+procedure TSpellCheckLinter.AddError(const AError, AFilename: string);
+begin
+  fCSErrorLog.Enter;
+  try
+    fErrors.Add('Error checking file '+AFilename+': '+AError);
+  finally
+    fCSErrorLog.Leave;
+  end;
 end;
 
 end.
