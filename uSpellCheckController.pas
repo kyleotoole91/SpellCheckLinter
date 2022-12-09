@@ -89,7 +89,7 @@ uses
           spellCheck.ProvideSuggestions := ParamStr(cProvideSuggestions) = '1';
         Writeln('Spell checking files, please wait...');
         spellCheck.Run;
-        if SecondsBetween(spellCheck.StartTime, spellCheck.EndTime) = 0 then
+        if SecondsBetween(spellCheck.StartTime, spellCheck.EndTime) < 10 then
           Writeln(Format('Checked %d files in %d milliseconds', [spellCheck.FileCount,
                                                       MilliSecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]))
         else
