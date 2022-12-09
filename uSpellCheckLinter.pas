@@ -344,7 +344,7 @@ var
   spellCheckThread: TSpellCheckThread;
 begin
   while fThreadCount >= cMaxThreads do
-    Sleep(10);
+    Sleep(cSleepTime);
   spellCheckThread := TSpellCheckThread.Create(Self);
   spellCheckThread.SpellCheckFile.Filename := AFilename;
   spellCheckThread.SpellCheckFile.ProvideSuggestions := fProvideSuggestions;
@@ -354,7 +354,7 @@ end;
 procedure TSpellCheckLinter.WaitForThreads;
 begin
   while fThreadCount > 0 do
-    Sleep(10);
+    Sleep(cSleepTime);
 end;
 
 end.
