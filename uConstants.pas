@@ -4,6 +4,7 @@ interface
 
 const
   cMaxThreads=10;
+  cSleepTime=10;
   cMaxStringLengthDFM=64;
   cMaxSuggestions=100;
   cSuggestLengthOffset=3;
