@@ -1,79 +1,12 @@
-unit uSpellCheck; //designed for code files .pas and .dfm. Only words within string literals are spell checked
-
+unit uSpellCheckFile;
 
 interface
 
 uses
-  System.SysUtils, System.IOUtils, System.Types, System.UITypes, System.Classes, System.Variants, Generics.Collections, DateUtils, uConstants,
-  System.SyncObjs, System.RegularExpressions;
+  System.SysUtils, System.Classes, uConstants,
+  System.RegularExpressions, uSpellcheckLinter;
 
 type
-  TSpellCheck = class(TObject)
-  strict private
-    fThreadCount: integer;
-    fCSErrorLog,
-    fCSThreadCount: TCriticalSection;
-    fIngoreFilePath: string;
-    fIgnoreCodeFile: TStringList;
-    fWordCheckCount: uInt64;
-    fIgnorePathContaining: TStringList;
-    fIgnoreLines: TStringList;
-    fIgnoreWords: TStringList;
-    fIgnoreFiles: TStringList;
-    fLanguageFile: TStringList;
-    fErrors: TStringList;
-    fStartTime: TDateTime;
-    fEndTime: TDateTime;
-    fFileCount: integer;
-    fQuoteSym: string;
-    fFileExtFilter: string;
-    fSourcePath: string;
-    fLanguageFilename: string;
-    fWordsDict: TDictionary<string, string>;
-    fRecursive: boolean;
-    fErrorWords: TStringList;
-    fIgnoreContainsLines: TStringList;
-    fProvideSuggestions: boolean;
-    procedure SetIngoreFilePath(const Value: string);
-    procedure Clear;
-    procedure LoadIgnoreFiles;
-    procedure LoadLanguageDictionary;
-    procedure SetLanguageFilename(const Value: string);
-    procedure SpellCheckFile(const AFilename: string);
-    function IngoredPathContaining(const AFilename: string): boolean;
-    procedure WaitForThreads;
-  public
-    constructor Create;
-    destructor Destroy; override;
-    procedure Run;
-    function AddToIgnoreFile: boolean;
-    procedure IncWordCheckCount;
-    function InIgnoreCodeFile(const AText: string): boolean;
-    procedure AddError(const AError: string; const AFilename: string; const ALineNumber: integer; const AUnTrimmedLine: string;
-                       const ASuggestions: string=''; const AAltSuggestions: string=''); overload;
-    procedure AddError(const AError, AFilename: string); overload;
-    procedure DecrementThreadCount;
-    procedure IncrementThreadCount;
-    property LanguageFilename: string read fLanguageFilename write SetLanguageFilename;
-    property SourcePath: string read fSourcePath write fSourcePath;
-    property QuoteSym: string read fQuoteSym write fQuoteSym;
-    property IgnoreWords: TStringList read fIgnoreWords;
-    property IgnoreFiles: TStringList read fIgnoreFiles;
-    property IgnoreLines: TStringList read fIgnoreLines;
-    property FileCount: integer read fFileCount;
-    property WordCheckCount: uInt64 read fWordCheckCount;
-    property StartTime: TDateTime read fStartTime;
-    property EndTime: TDateTime read fEndTime;
-    property Errors: TStringList read fErrors;
-    property Recursive: boolean read fRecursive write fRecursive;
-    property FileExtFilter: string read fFileExtFilter write fFileExtFilter;
-    property ErrorsWords: TStringList read fErrorWords;
-    property IgnoreContainsLines: TStringList read fIgnoreContainsLines;
-    property IngoreFilePath: string read fIngoreFilePath write SetIngoreFilePath;
-    property ProvideSuggestions: boolean read fProvideSuggestions write fProvideSuggestions;
-    property WordsDict: TDictionary<string, string> read fWordsDict;
-  end;
-
   TSpellCheckFile = class(TObject)
   strict private
     fOwner: TSpellCheck;
@@ -95,6 +28,7 @@ type
     fLineStr: string;
     fTheStr: string;
     fTheWord: string;
+    fQuoteSym: string;
     procedure CleanLineWords;
     procedure PrepareLineString;
     procedure BuildLineWords(AString: string);
@@ -149,284 +83,6 @@ implementation
 uses
   System.Character, Math, ActiveX;
 
-{ TSpellCheck }
-
-constructor TSpellCheck.Create;
-begin
-  inherited;
-  fProvideSuggestions := true;
-  fIngoreFilePath := cDefaultSourcePath;
-  fIgnorePathContaining := TStringList.Create;
-  fIgnoreContainsLines := TStringList.Create;
-  fErrorWords := TStringList.Create;
-  fWordsDict := TDictionary<string, string>.Create;
-  fLanguageFile := TStringList.Create;
-  fErrors := TStringList.Create;
-  fIgnoreLines := TStringList.Create;
-  fIgnoreWords := TStringList.Create;
-  fIgnoreFiles := TStringList.Create;
-  fIgnoreCodeFile := TStringList.Create;
-  fQuoteSym := cDefaultQuote;
-  fRecursive := true;
-  fCSErrorLog := TCriticalSection.Create;
-  fCSThreadCount := TCriticalSection.Create;
-  Clear;
-end;
-
-procedure TSpellCheck.DecrementThreadCount;
-begin
-  fCSThreadCount.Enter;
-  try
-    Inc(fThreadCount, -1);
-  finally
-    fCSThreadCount.Leave;
-  end;
-end;
-
-procedure TSpellCheck.IncrementThreadCount;
-begin
-  fCSThreadCount.Enter;
-  try
-    Inc(fThreadCount);
-  finally
-    fCSThreadCount.Leave;
-  end;
-end;
-
-destructor TSpellCheck.Destroy;
-begin
-  try
-    fIgnoreCodeFile.DisposeOf;
-    fIgnorePathContaining.DisposeOf;
-    fIgnoreContainsLines.DisposeOf;
-    fErrorWords.DisposeOf;
-    fIgnoreLines.DisposeOf;
-    fIgnoreWords.DisposeOf;
-    fIgnoreFiles.DisposeOf;
-    fWordsDict.DisposeOf;
-    fLanguageFile.DisposeOf;
-    fErrors.DisposeOf;
-    fCSErrorLog.DisposeOf;
-    fCSThreadCount.DisposeOf;
-  finally
-    inherited;
-  end;
-end;
-
-procedure TSpellCheck.Clear;
-begin
-  fFileCount := 0;
-  fWordCheckCount := 0;
-  fIgnoreLines.Clear;
-  fIgnoreWords.Clear;
-  fIgnoreFiles.Clear;
-  fWordsDict.Clear;
-  fLanguageFile.Clear;
-  fErrors.Clear;
-  fSourcePath := cDefaultSourcePath;
-  fFileExtFilter := cDefaultExtFilter;
-  fLanguageFilename := cDefaultlanguageName;
-  fIgnoreContainsLines.Clear;
-  fIgnorePathContaining.Clear;
-end;
-
-procedure TSpellCheck.Run;
-var
-  filenames: TStringDynArray;
-  filename: string;
-begin
-  fStartTime := Now;
-  try
-    try
-      fThreadCount := 0;
-      fErrors.Clear;
-      fErrorWords.Clear;
-      LoadIgnoreFiles;
-      LoadLanguageDictionary;
-      if FileExists(fSourcePath) then
-        SpellCheckFile(fSourcePath)
-      else begin
-        if Trim(fSourcePath) = '' then
-          fSourcePath := '.\';
-        if fRecursive then
-          filenames := TDirectory.GetFiles(fSourcePath, fFileExtFilter, TSearchOption.soAllDirectories)
-        else
-          filenames := TDirectory.GetFiles(fSourcePath, fFileExtFilter, TSearchOption.soTopDirectoryOnly);
-      end;
-      for filename in filenames do begin
-        if (fIgnoreFiles.IndexOf(ExtractFileName(filename)) = -1) and
-           (not IngoredPathContaining(filename)) then begin
-          Inc(fFileCount);
-          SpellCheckFile(filename);
-        end;
-      end;
-      WaitForThreads;
-    except
-      on e: exception do
-        fErrors.Add('Exception raised: '+e.ClassName+' '+e.Message);
-    end;
-  finally
-    fEndTime := Now;
-  end;
-end;
-
-procedure TSpellCheck.LoadLanguageDictionary;
-var
-  i: integer;
-  key: string;
-  value: string;
-  sepIndex: integer;
-begin
-  fWordsDict.Clear;
-  fLanguageFile.LoadFromFile(fLanguageFilename);
-  for i:=0 to fLanguageFile.Count-1 do begin
-    key := fLanguageFile.Strings[i];
-    sepIndex := key.IndexOf('/');
-    if sepIndex = -1 then
-      fWordsDict.AddOrSetValue(fLanguageFile.Strings[i], '')
-    else begin
-      key := Copy(fLanguageFile.Strings[i], 0, pos('/', fLanguageFile.Strings[i])-1);
-      value := Copy(fLanguageFile.Strings[i], pos('/', fLanguageFile.Strings[i])+1, fLanguageFile.Strings[i].Length);
-      fWordsDict.AddOrSetValue(key, value);
-    end;
-  end;
-end;
-
-procedure TSpellCheck.LoadIgnoreFiles;
-begin
-  if FileExists(fIngoreFilePath+cIgnoreContainsName) then
-    fIgnoreContainsLines.LoadFromFile(fIngoreFilePath+cIgnoreContainsName);
-  if FileExists(fIngoreFilePath+cIgnoreCodeName) then
-    fIgnoreCodeFile.LoadFromFile(fIngoreFilePath+cIgnoreCodeName);
-  if FileExists(fIngoreFilePath+cIgnorePathsName) then
-    fIgnorePathContaining.LoadFromFile(fIngoreFilePath+cIgnorePathsName);
-  if FileExists(fIngoreFilePath+cIgnoreFilesName) then
-    fIgnoreFiles.LoadFromFile(fIngoreFilePath+cIgnoreFilesName);
-  if FileExists(fIngoreFilePath+cIgnoreWordsName) then
-    fIgnoreWords.LoadFromFile(fIngoreFilePath+cIgnoreWordsName);
-  if FileExists(fIngoreFilePath+cIgnoreLinesName) then
-    fIgnoreLines.LoadFromFile(fIngoreFilePath+cIgnoreLinesName);
-end;
-
-procedure TSpellCheck.IncWordCheckCount;
-begin
-  fCSErrorLog.Enter;
-  try
-    Inc(fWordCheckCount);
-  finally
-    fCSErrorLog.Leave;
-  end;
-end;
-
-function TSpellCheck.IngoredPathContaining(const AFilename: string): boolean;
-var
-  a: integer;
-  path: string;
-begin
-  result := false;
-  path := ExtractFilePath(AFilename);
-  for a := 0 to fIgnorePathContaining.Count-1 do begin
-    result := path.Contains(fIgnorePathContaining.Strings[a]);
-    if result then
-      Break;
-  end;
-end;
-
-function TSpellCheck.InIgnoreCodeFile(const AText: string): boolean;
-var
-  a: integer;
-begin
-  result := false;
-  for a := 0 to fIgnoreCodeFile.Count-1 do begin
-    result := AText.Contains(fIgnoreCodeFile.Strings[a]);
-    if result then
-      Break;
-  end;
-end;
-
-procedure TSpellCheck.AddError(const AError: string; const AFilename: string; const ALineNumber: integer; const AUnTrimmedLine: string;
-                               const ASuggestions: string=''; const AAltSuggestions: string='');
-begin
-  fCSErrorLog.Enter;
-  try
-    fErrors.Add('Error: '+AError);
-    if ASuggestions <> '' then
-      fErrors.Add('Suggestions: '+ASuggestions);
-    if AAltSuggestions <> '' then
-      fErrors.Add('Alternatives: '+AAltSuggestions);
-    fErrors.Add('File name: '+AFilename);
-    fErrors.Add('Line number: '+IntToStr(ALineNumber));
-    fErrors.Add('Line text: '+AUnTrimmedLine);
-    fErrors.Add(' ');
-    fErrorWords.Add(AError);
-  finally
-    fCSErrorLog.Leave;
-  end;
-end;
-
-procedure TSpellCheck.AddError(const AError, AFilename: string);
-begin
-  fCSErrorLog.Enter;
-  try
-    fErrors.Add('Error checking file '+AFilename+': '+AError);
-  finally
-    fCSErrorLog.Leave;
-  end;
-end;
-
-function TSpellCheck.AddToIgnoreFile: boolean;
-var
-  sl: TStringList;
-  a: integer;
-begin
-  result := true;
-  try
-    sl := TStringList.Create;
-    if FileExists('.\'+cIgnoreWordsName) then
-      sl.LoadFromFile(cIgnoreWordsName);
-    sl.Add(fErrorWords.Text);
-    for a := 0 to fErrorWords.Count-1 do begin
-      if sl.IndexOf(fErrorWords.Strings[a]) = -1 then
-        sl.Add(fErrorWords.Strings[a]);
-    end;
-    sl.SaveToFile('.\'+cIgnoreWordsName);
-  except
-    on e: exception do begin
-      result := false;
-      fErrors.Add(e.Classname+' '+e.Message);
-    end;
-  end;
-end;
-
-procedure TSpellCheck.SetIngoreFilePath(const Value: string);
-begin
-  fIngoreFilePath := IncludeTrailingPathDelimiter(Value);
-end;
-
-procedure TSpellCheck.SetLanguageFilename(const Value: string);
-begin
-  fLanguageFilename := Value;
-  LoadLanguageDictionary;
-end;
-
-procedure TSpellCheck.SpellCheckFile(const AFilename: string);
-var
-  spellCheckThread: TSpellCheckThread;
-begin
-  while fThreadCount >= cMaxThreads do
-    Sleep(10);
-  spellCheckThread := TSpellCheckThread.Create(Self);
-  spellCheckThread.SpellCheckFile.Filename := AFilename;
-  spellCheckThread.SpellCheckFile.ProvideSuggestions := fProvideSuggestions;
-  spellCheckThread.Start;
-end;
-
-procedure TSpellCheck.WaitForThreads;
-begin
-  while fThreadCount > 0 do
-    Sleep(10);
-end;
-
 { TSpellCheckFile }
 
 constructor TSpellCheckFile.Create(const AOwner: TSpellCheck);
@@ -458,10 +114,12 @@ var
   a: integer;
 begin
   result := false;
-  for a := 0 to fOwner.IgnoreContainsLines.Count-1 do begin
-    result := ALine.Contains(fOwner.IgnoreContainsLines.Strings[a]);
-    if result then
-      Break;
+  if Assigned(fOwner) then begin
+    for a := 0 to fOwner.IgnoreContainsLines.Count-1 do begin
+      result := ALine.Contains(fOwner.IgnoreContainsLines.Strings[a]);
+      if result then
+        Break;
+    end;
   end;
 end;
 
@@ -476,7 +134,7 @@ begin
     AWord := RemoveEscappedQuotes(fCamelCaseWords.Strings[k]);
     if not SpelledCorrectly(AWord) then begin
       hasError := true;
-      if ALogError then
+      if ALogError and Assigned(fOwner) then
         fOwner.AddError(AWord, fFilename, fLineNum, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
     end;
   end;
@@ -512,8 +170,10 @@ begin
     sl.Delimiter := ' ';
     if fLineNum <= fSourceFile.Count-1 then begin
       str := fSourceFile.Strings[fLineNum];
-      str := Copy(str, Pos(fOwner.QuoteSym, str)+1, str.Length);
-      str := Copy(str, 1, PosOfNextQuote(str, fOwner.QuoteSym)-1);
+      if Assigned(fOwner) then begin
+        str := Copy(str, Pos(fOwner.QuoteSym, str)+1, str.Length);
+        str := Copy(str, 1, PosOfNextQuote(str, fOwner.QuoteSym)-1);
+      end;
       sl.CommaText := Str;
       if sl.Count >= 1 then
         result := Trim(sl.Strings[0]);
@@ -527,7 +187,8 @@ procedure TSpellCheckFile.SpellCheckWithoutRegex(const ALineWordIndex: integer);
 begin
   fLineStr := fLineStr.Remove(pos(fLineWords.Strings[ALineWordIndex], fLineStr)-1, fTheWord.Length);
   fTheWord := RemoveEscappedQuotes(fTheWord);
-  if not SpelledCorrectly(fTheWord) then
+  if (not SpelledCorrectly(fTheWord)) and
+     (Assigned(fOwner)) then
     fOwner.AddError(fTheWord, fFilename, fLineNum, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
 end;
 
@@ -543,8 +204,9 @@ begin
     okWithNextWord := CheckCamelCaseWords(fTheWord+nextFirstWord, false);
     if (not okWithNextWord) and
        (not CheckCamelCaseWords(fTheWord, false)) then begin
-      fOwner.AddError(fTheWord + nextFirstWord + cWordSeparator + fTheWord + cWordSeparator + nextFirstWord,
-                      fFilename, fLineNum, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
+      if Assigned(fOwner) then
+        fOwner.AddError(fTheWord + nextFirstWord + cWordSeparator + fTheWord + cWordSeparator + nextFirstWord,
+                        fFilename, fLineNum, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
     end else if (not okWithNextWord) then
       fIgnoreNextFirstWord := true;
   end else
@@ -564,7 +226,11 @@ begin
       InitNewLine(i);
       if not IgnoreLine then begin
         itrCount := 0;
-        while Pos(fOwner.QuoteSym, fLineStr) >= 1 do begin //while the line has string literals
+        if Assigned(fOwner) then
+          fQuoteSym := fOwner.QuoteSym
+        else
+          fQuoteSym := cDefaultQuote;
+        while Pos(fQuoteSym, fLineStr) >= 1 do begin //while the line has string literals
           try
             PrepareLineString;
             if not IgnoreString then begin
@@ -585,8 +251,10 @@ begin
         end;
       end;
     except
-      on e: exception do
-        fOwner.AddError('Exception raised: '+e.ClassName+' '+e.Message, fFilename);
+      on e: exception do begin
+        if Assigned(fOwner) then
+          fOwner.AddError('Exception raised: '+e.ClassName+' '+e.Message, fFilename);
+      end;
     end;
   end;
 end;
@@ -627,8 +295,8 @@ begin
     fLineWords.DelimitedText := ''
   else begin
     AString := SanitizeWord(AString, false);
-    if AString.EndsWith(fOwner.QuoteSym) then //strings ending with double quotes was causing the last char to get removed when setting delimited text
-      AString := Copy(AString, 1, AString.Length-1)+' '+fOwner.QuoteSym;
+    if AString.EndsWith(fQuoteSym) then //strings ending with double quotes was causing the last char to get removed when setting delimited text
+      AString := Copy(AString, 1, AString.Length-1)+' '+fQuoteSym;
     fLineWords.DelimitedText := AString;
   end;
 end;
@@ -638,7 +306,7 @@ begin
    result := (fLineStr = '') or
              (IsCommentLine(fLineStr)) or
              (ContainsIgnore(fLineStr)) or
-             (fOwner.IgnoreLines.IndexOf(Trim(fLineStr)) >= 0)
+             (Assigned(fOwner) and (fOwner.IgnoreLines.IndexOf(Trim(fLineStr)) >= 0));
 end;
 
 function TSpellCheckFile.IgnoreString: boolean;
@@ -662,8 +330,8 @@ begin
   fLineNum := ALineIdx + 1;
   fUnTrimmedLine := fSourceFile.Strings[ALineIdx];
   fLineStr := Trim(fSourceFile.Strings[ALineIdx]);
-  if Pos(fOwner.QuoteSym, fLineStr) >= 1 then
-    fTextBeforeQuote := Copy(fLineStr, 1, Pos(fOwner.QuoteSym, fLineStr)-1)
+  if Pos(fQuoteSym, fLineStr) >= 1 then
+    fTextBeforeQuote := Copy(fLineStr, 1, Pos(fQuoteSym, fLineStr)-1)
   else
     fTextBeforeQuote := fLineStr;
 end;
@@ -680,7 +348,7 @@ begin
     else if fTextBeforeQuote.Contains('<html>') then
       fMultiCommentSym := '</html>'
     else if IsSQL(ALine) or
-            fOwner.InIgnoreCodeFile(fTextBeforeQuote) then begin
+            (Assigned(fOwner) and fOwner.InIgnoreCodeFile(fTextBeforeQuote)) then begin
       if fIsDFM then
         fMultiCommentSym := cSkipLineEndStringDFM
       else
@@ -748,8 +416,8 @@ end;
 
 procedure TSpellCheckFile.PrepareLineString;
 begin
-  fLineStr := Copy(fLineStr, Pos(fOwner.QuoteSym, fLineStr)+1, fLineStr.Length);
-  fTheStr := Copy(fLineStr, 1, PosOfNextQuote(fLineStr, fOwner.QuoteSym)-1);
+  fLineStr := Copy(fLineStr, Pos(fQuoteSym, fLineStr)+1, fLineStr.Length);
+  fTheStr := Copy(fLineStr, 1, PosOfNextQuote(fLineStr, fQuoteSym)-1);
   fPossibleTruncation := fIsDFM and (fTheStr.Length = cMaxStringLengthDFM);
   if Pos(fTheStr, fLineStr)+fTheStr.Length <> 0 then //remove the string from the line
     fLineStr := Copy(fLineStr, Pos(fTheStr, fLineStr)+fTheStr.Length+1, fLineStr.Length)
@@ -760,7 +428,7 @@ end;
 function TSpellCheckFile.RemoveEscappedQuotes(const AStr: string): string;
 begin
   result := Trim(TRegEx.Replace(AStr, cRegExRemoveNumbers, ''));
-  if fOwner.QuoteSym = '''' then //remove Delphi escaped quotes and replace with one single quote
+  if fQuoteSym = '''' then //remove Delphi escaped quotes and replace with one single quote
     result := result.Replace('''''', '''');
 end;
 
@@ -777,11 +445,13 @@ begin
     result := (word.Length < cMinCheckLength) or //Don't check short words
               (UpperCase(word) = word) or //IGNORE UPPER CASE TEXT
               (IsNumeric(word)) or //Don't check numbers
-              (fOwner.IgnoreWords.IndexOf(word) >= 0); //Don't ignore file for the word
+              (Assigned(fOwner) and (fOwner.IgnoreWords.IndexOf(word) >= 0)); //Don't ignore file for the word
     if not result then begin
-      result := (fOwner.WordsDict.ContainsKey(word)) or
-                (ATryLower and fOwner.WordsDict.ContainsKey(LowerCase(word)));
-      fOwner.IncWordCheckCount;
+      if Assigned(fOwner) then begin
+        result := (fOwner.WordsDict.ContainsKey(word)) or
+                  (ATryLower and fOwner.WordsDict.ContainsKey(LowerCase(word)));
+        fOwner.IncWordCheckCount;
+      end;
       if (not result) and
          (fProvideSuggestions) then
         BuildSuggestions(AWord);
@@ -793,10 +463,10 @@ function TSpellCheckFile.RemoveStartEndQuotes(const AStr: string): string;
 begin
   result := AStr;
   if (result.Length > 0) and
-     (result[1] = fOwner.QuoteSym) then
+     (result[1] = fQuoteSym) then
     result := Copy(result, 2, result.Length);
   if (result.Length > 0) and
-     (result[result.Length] = fOwner.QuoteSym) then
+     (result[result.Length] = fQuoteSym) then
     result := Copy(result, 1, result.Length-1);
 end;
 
@@ -973,9 +643,12 @@ begin
   fSuggestions.Clear;
   fAltSuggestions.Clear;
   try
-    FindSuggestions(AMispelledWord);
-    LimitItems(fSuggestions);
-    LimitItems(fAltSuggestions);
+    if Assigned(fOwner) and 
+       Assigned(fOwner.WordsDict) then begin
+      FindSuggestions(AMispelledWord);
+      LimitItems(fSuggestions);
+      LimitItems(fAltSuggestions);
+    end;
   finally
     splitWords.DisposeOf;
   end;
@@ -1070,10 +743,9 @@ begin
   try
     fSpellCheckFile.Run;
   finally
-    fSpellCheckFile.Owner.DecrementThreadCount;
+    if Assigned(fSpellCheckFile.Owner) then
+      fSpellCheckFile.Owner.DecrementThreadCount;
   end;
 end;
 
 end.
-
-

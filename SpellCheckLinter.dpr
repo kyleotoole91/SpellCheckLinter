@@ -7,8 +7,9 @@ program SpellCheckLinter;
 uses
   System.SysUtils,
   uConstants in 'uConstants.pas',
-  uSpellCheck in 'uSpellCheck.pas',
-  uSpellCheckController in 'uSpellCheckController.pas';
+  uSpellCheckLinter in 'uSpellCheckLinter.pas',
+  uSpellCheckController in 'uSpellCheckController.pas',
+  uSpellCheckFile in 'uSpellCheckFile.pas';
 
 begin
   try

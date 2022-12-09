@@ -16,7 +16,7 @@ const
 implementation
 
 uses
-  System.SysUtils, DateUtils, uSpellCheck, uConstants;
+  System.SysUtils, DateUtils, uSpellCheckLinter, uConstants;
 
   procedure RunSpellCheck;
   var
@@ -89,12 +89,12 @@ uses
           spellCheck.ProvideSuggestions := ParamStr(cProvideSuggestions) = '1';
         Writeln('Spell checking files, please wait...');
         spellCheck.Run;
-        if SecondsBetween(spellCheck.StartTime, spellCheck.EndTime) = 0 then
+        //if SecondsBetween(spellCheck.StartTime, spellCheck.EndTime) = 0 then
           Writeln(Format('Checked %d files in %d milliseconds', [spellCheck.FileCount,
-                                                      MilliSecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]))
-        else
-          Writeln(Format('Checked %d files in %d seconds', [spellCheck.FileCount,
-                                                     SecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]));
+                                                      MilliSecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]));
+        //else
+        //  Writeln(Format('Checked %d files in %d seconds', [spellCheck.FileCount,
+        //                                             SecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]));
         Writeln(Format('Error count %d', [spellCheck.ErrorsWords.Count]));
         Writeln(' ');
         WriteErrors;
