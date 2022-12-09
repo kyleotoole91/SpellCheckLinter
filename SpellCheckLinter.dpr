@@ -16,6 +16,7 @@ begin
     ExitCode := RunSpellCheck;
   except
     on e: Exception do begin
+      ExitCode := cExitCodeException;
       Writeln(e.ClassName, ': ', e.Message);
       if ParamStr(cHalt) <> '0' then
         Readln(input);
