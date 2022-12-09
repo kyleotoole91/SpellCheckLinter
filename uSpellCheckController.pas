@@ -75,59 +75,52 @@ uses
     result := cExitCodeOk;
     spellCheck := TSpellCheckLinter.Create;
     try
-      try
-        if (Trim(ParamStr(cLanguageFilename)) = 'help') or
-           (Trim(ParamStr(cLanguageFilename)) = 'man') then
-          ShowManual
-        else begin
-          if Trim(ParamStr(cLanguageFilename)) <> '' then
-            spellCheck.LanguageFilename := ParamStr(cLanguageFilename);
-          if Trim(ParamStr(cSourceFilename)) <> '' then
-            spellCheck.SourcePath := ParamStr(cSourceFilename);
-          if Trim(ParamStr(cExtFilter)) <> '' then
-            spellCheck.FileExtFilter := ParamStr(cExtFilter);
-          spellCheck.Recursive := ParamStr(cResursive) = '1';
-          if Trim(ParamStr(cIgnoreFilepath)) <> '' then
-            spellCheck.IngoreFilePath := ParamStr(cIgnoreFilepath);
-          if Trim(ParamStr(cProvideSuggestions)) <> '' then
-            spellCheck.ProvideSuggestions := ParamStr(cProvideSuggestions) = '1';
-          Writeln('Spell checking files, please wait...');
-          spellCheck.Run;
-          if SecondsBetween(spellCheck.StartTime, spellCheck.EndTime) < 10 then
-            Writeln(Format('Checked %d files in %d milliseconds', [spellCheck.FileCount,
-                                                        MilliSecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]))
-          else
-            Writeln(Format('Checked %d files in %d seconds', [spellCheck.FileCount,
-                                                       SecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]));
-          Writeln(Format('Error count %d', [spellCheck.ErrorsWords.Count]));
-          Writeln(' ');
-          WriteErrors;
-          if spellCheck.Errors.Count > 0 then begin
-            result := cExitCodeErrors;
-            if ParamStr(cHalt) <> '0' then begin
-              if (spellCheck.ErrorsWords.Count > 0) then begin
-                Writeln('Would you like to add these words to '+cIgnoreWordsName+'? Y/N or R to run again');
-              if ParamStr(cExtFilter) <> '0' then
-                Readln(input);
-              if (input = 'y') or (input = 'Y') then
-                spellCheck.AddToIgnoreFile;
-              end else
-                NoErrorsMsg;
-            end;
-          end else
-            NoErrorsMsg;
-        end;
-      except
-        on e: exception do begin
-          result := cExitCodeException;
-          Writeln(e.Message);
-        end;
+      if (Trim(ParamStr(cLanguageFilename)) = 'help') or
+         (Trim(ParamStr(cLanguageFilename)) = 'man') then
+        ShowManual
+      else begin
+        if Trim(ParamStr(cLanguageFilename)) <> '' then
+          spellCheck.LanguageFilename := ParamStr(cLanguageFilename);
+        if Trim(ParamStr(cSourceFilename)) <> '' then
+          spellCheck.SourcePath := ParamStr(cSourceFilename);
+        if Trim(ParamStr(cExtFilter)) <> '' then
+          spellCheck.FileExtFilter := ParamStr(cExtFilter);
+        spellCheck.Recursive := ParamStr(cResursive) = '1';
+        if Trim(ParamStr(cIgnoreFilepath)) <> '' then
+          spellCheck.IngoreFilePath := ParamStr(cIgnoreFilepath);
+        if Trim(ParamStr(cProvideSuggestions)) <> '' then
+          spellCheck.ProvideSuggestions := ParamStr(cProvideSuggestions) = '1';
+        Writeln('Spell checking files, please wait...');
+        spellCheck.Run;
+        if SecondsBetween(spellCheck.StartTime, spellCheck.EndTime) < 10 then
+          Writeln(Format('Checked %d files in %d milliseconds', [spellCheck.FileCount,
+                                                      MilliSecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]))
+        else
+          Writeln(Format('Checked %d files in %d seconds', [spellCheck.FileCount,
+                                                     SecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]));
+        Writeln(Format('Error count %d', [spellCheck.ErrorsWords.Count]));
+        Writeln(' ');
+        WriteErrors;
+        if spellCheck.Errors.Count > 0 then begin
+          result := cExitCodeErrors;
+          if ParamStr(cHalt) <> '0' then begin
+            if (spellCheck.ErrorsWords.Count > 0) then begin
+              Writeln('Would you like to add these words to '+cIgnoreWordsName+'? Y/N or R to run again');
+            if ParamStr(cExtFilter) <> '0' then
+              Readln(input);
+            if (input = 'y') or (input = 'Y') then
+              spellCheck.AddToIgnoreFile;
+            end else
+              NoErrorsMsg;
+          end;
+        end else
+          NoErrorsMsg;
       end;
     finally
       spellCheck.Free;
       if (input ='R') or
          (input ='r') then
-        RunSpellCheck;
+        result := RunSpellCheck;
     end;
   end;
 end.
