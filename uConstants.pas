@@ -3,7 +3,7 @@ unit uConstants;
 interface
 
 const
-  cMaxThreads=16;
+  cMaxThreads=10;
   cMaxStringLengthDFM=64;
   cMaxSuggestions=100;
   cSuggestLengthOffset=3;
@@ -16,7 +16,6 @@ const
   cSkipLineEndStringDFM=';';
   cSpellCheckOff='//SPELL_CHECK_OFF';
   cSpellCheckOn='//SPELL_CHECK_ON';
-  cSkipLineEndOfFunctionBlock='end;';
   cSkippedLineCountLimit=220; //
   cDefaultExtFilter='*.pas';
   cDefaultSourcePath='.\';
