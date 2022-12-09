@@ -557,7 +557,7 @@ var
     a, k: integer;
     word,
     dictionaryWord: string;
-    procedure TypoSearchAlteratives;
+    procedure AddTypoSearchAlteratives;
     var
       a, idx: integer;
       typoFix, tmp: string;
@@ -635,7 +635,7 @@ var
         end;
       end;
       ExtractMostLikelyAlts;
-      TypoSearchAlteratives;
+      AddTypoSearchAlteratives;
     end;
   end;
 begin
