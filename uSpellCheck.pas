@@ -67,7 +67,7 @@ type
     property Errors: TStringList read fErrors;
     property Recursive: boolean read fRecursive write fRecursive;
     property FileExtFilter: string read fFileExtFilter write fFileExtFilter;
-    property ErrorsWords: TStringList read fErrorWords write fErrorWords;
+    property ErrorsWords: TStringList read fErrorWords;
     property IgnoreContainsLines: TStringList read fIgnoreContainsLines;
     property IngoreFilePath: string read fIngoreFilePath write SetIngoreFilePath;
     property ProvideSuggestions: boolean read fProvideSuggestions write fProvideSuggestions;
