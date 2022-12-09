@@ -8,7 +8,7 @@ uses
   System.SyncObjs, System.RegularExpressions;
 
 type
-  TSpellCheck = class(TObject)
+  TSpellCheckLinter = class(TObject)
   strict private
     fThreadCount: integer;
     fCSErrorLog,
@@ -79,9 +79,9 @@ implementation
 uses
   uSpellCheckFile;
 
-{ TSpellCheck }
+{ TSpellCheckLinter }
 
-constructor TSpellCheck.Create;
+constructor TSpellCheckLinter.Create;
 begin
   inherited;
   fProvideSuggestions := true;
@@ -103,7 +103,7 @@ begin
   Clear;
 end;
 
-procedure TSpellCheck.DecrementThreadCount;
+procedure TSpellCheckLinter.DecrementThreadCount;
 begin
   fCSThreadCount.Enter;
   try
@@ -113,7 +113,7 @@ begin
   end;
 end;
 
-procedure TSpellCheck.IncrementThreadCount;
+procedure TSpellCheckLinter.IncrementThreadCount;
 begin
   fCSThreadCount.Enter;
   try
@@ -123,7 +123,7 @@ begin
   end;
 end;
 
-destructor TSpellCheck.Destroy;
+destructor TSpellCheckLinter.Destroy;
 begin
   try
     fIgnoreCodeFile.DisposeOf;
@@ -143,7 +143,7 @@ begin
   end;
 end;
 
-procedure TSpellCheck.Clear;
+procedure TSpellCheckLinter.Clear;
 begin
   fFileCount := 0;
   fWordCheckCount := 0;
@@ -160,7 +160,7 @@ begin
   fIgnorePathContaining.Clear;
 end;
 
-procedure TSpellCheck.Run;
+procedure TSpellCheckLinter.Run;
 var
   filenames: TStringDynArray;
   filename: string;
@@ -200,7 +200,7 @@ begin
   end;
 end;
 
-procedure TSpellCheck.LoadLanguageDictionary;
+procedure TSpellCheckLinter.LoadLanguageDictionary;
 var
   i: integer;
   key: string;
@@ -222,7 +222,7 @@ begin
   end;
 end;
 
-procedure TSpellCheck.LoadIgnoreFiles;
+procedure TSpellCheckLinter.LoadIgnoreFiles;
 begin
   if FileExists(fIngoreFilePath+cIgnoreContainsName) then
     fIgnoreContainsLines.LoadFromFile(fIngoreFilePath+cIgnoreContainsName);
@@ -238,7 +238,7 @@ begin
     fIgnoreLines.LoadFromFile(fIngoreFilePath+cIgnoreLinesName);
 end;
 
-procedure TSpellCheck.IncWordCheckCount;
+procedure TSpellCheckLinter.IncWordCheckCount;
 begin
   fCSErrorLog.Enter;
   try
@@ -248,7 +248,7 @@ begin
   end;
 end;
 
-function TSpellCheck.IngoredPathContaining(const AFilename: string): boolean;
+function TSpellCheckLinter.IngoredPathContaining(const AFilename: string): boolean;
 var
   a: integer;
   path: string;
@@ -262,7 +262,7 @@ begin
   end;
 end;
 
-function TSpellCheck.InIgnoreCodeFile(const AText: string): boolean;
+function TSpellCheckLinter.InIgnoreCodeFile(const AText: string): boolean;
 var
   a: integer;
 begin
@@ -274,7 +274,7 @@ begin
   end;
 end;
 
-procedure TSpellCheck.AddError(const AError: string; const AFilename: string; const ALineNumber: integer; const AUnTrimmedLine: string;
+procedure TSpellCheckLinter.AddError(const AError: string; const AFilename: string; const ALineNumber: integer; const AUnTrimmedLine: string;
                                const ASuggestions: string=''; const AAltSuggestions: string='');
 begin
   fCSErrorLog.Enter;
@@ -294,7 +294,7 @@ begin
   end;
 end;
 
-procedure TSpellCheck.AddError(const AError, AFilename: string);
+procedure TSpellCheckLinter.AddError(const AError, AFilename: string);
 begin
   fCSErrorLog.Enter;
   try
@@ -304,7 +304,7 @@ begin
   end;
 end;
 
-function TSpellCheck.AddToIgnoreFile: boolean;
+function TSpellCheckLinter.AddToIgnoreFile: boolean;
 var
   sl: TStringList;
   a: integer;
@@ -328,18 +328,18 @@ begin
   end;
 end;
 
-procedure TSpellCheck.SetIngoreFilePath(const Value: string);
+procedure TSpellCheckLinter.SetIngoreFilePath(const Value: string);
 begin
   fIngoreFilePath := IncludeTrailingPathDelimiter(Value);
 end;
 
-procedure TSpellCheck.SetLanguageFilename(const Value: string);
+procedure TSpellCheckLinter.SetLanguageFilename(const Value: string);
 begin
   fLanguageFilename := Value;
   LoadLanguageDictionary;
 end;
 
-procedure TSpellCheck.SpellCheckFile(const AFilename: string);
+procedure TSpellCheckLinter.SpellCheckFile(const AFilename: string);
 var
   spellCheckThread: TSpellCheckThread;
 begin
@@ -351,7 +351,7 @@ begin
   spellCheckThread.Start;
 end;
 
-procedure TSpellCheck.WaitForThreads;
+procedure TSpellCheckLinter.WaitForThreads;
 begin
   while fThreadCount > 0 do
     Sleep(10);

@@ -21,7 +21,7 @@ uses
   procedure RunSpellCheck;
   var
     input: string;
-    spellCheck: TSpellCheck;
+    spellCheck: TSpellCheckLinter;
     procedure NoErrorsMsg;
     begin
       if ParamStr(cHalt) <> '0' then begin
@@ -70,7 +70,7 @@ uses
     end;
   begin
     input := '';
-    spellCheck := TspellCheck.Create;
+    spellCheck := TSpellCheckLinter.Create;
     try
       if (Trim(ParamStr(cLanguageFilename)) = 'help') or
          (Trim(ParamStr(cLanguageFilename)) = 'man') then

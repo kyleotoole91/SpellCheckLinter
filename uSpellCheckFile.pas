@@ -9,7 +9,7 @@ uses
 type
   TSpellCheckFile = class(TObject)
   strict private
-    fOwner: TSpellCheck;
+    fOwner: TSpellCheckLinter;
     fProvideSuggestions: boolean;
     fAltSuggestions,
     fSuggestions: TStringList;
@@ -59,12 +59,12 @@ type
     function IgnoreString: boolean;
     procedure CheckEachWordInString;
   public
-    constructor Create(const AOwner: TSpellCheck); reintroduce;
+    constructor Create(const AOwner: TSpellCheckLinter); reintroduce;
     destructor Destroy; override;
     procedure Run;
     property Filename: string read fFilename write fFilename;
     property ProvideSuggestions: boolean read fProvideSuggestions write fProvideSuggestions;
-    property Owner: TSpellCheck read fOwner;
+    property Owner: TSpellCheckLinter read fOwner;
   end;
 
   TSpellCheckThread = class(TThread)
@@ -73,7 +73,7 @@ type
   protected
     procedure Execute; override;
   public
-    constructor Create(const AOwner: TSpellCheck); reintroduce;
+    constructor Create(const AOwner: TSpellCheckLinter); reintroduce;
     destructor Destroy; override;
     property SpellCheckFile: TSpellCheckFile read fSpellCheckFile;
   end;
@@ -85,7 +85,7 @@ uses
 
 { TSpellCheckFile }
 
-constructor TSpellCheckFile.Create(const AOwner: TSpellCheck);
+constructor TSpellCheckFile.Create(const AOwner: TSpellCheckLinter);
 begin
   inherited Create;
   fOwner := AOwner;
@@ -717,7 +717,7 @@ end;
 
 { TSpellCheckThread }
 
-constructor TSpellCheckThread.Create(const AOwner: TSpellCheck);
+constructor TSpellCheckThread.Create(const AOwner: TSpellCheckLinter);
 begin
   inherited Create(true);
   CoInitialize(nil);
