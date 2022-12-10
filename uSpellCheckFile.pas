@@ -57,7 +57,7 @@ type
     procedure SpellCheckWord(const AIsLast: boolean);
     function IgnoreLine: boolean;
     function IgnoreString: boolean;
-    procedure CheckEachWordInString;
+    procedure CheckEachLineWord;
   public
     constructor Create(const AOwner: TSpellCheckLinter); reintroduce;
     destructor Destroy; override;
@@ -141,7 +141,7 @@ begin
   result := not hasError;
 end;
 
-procedure TSpellCheckFile.CheckEachWordInString;
+procedure TSpellCheckFile.CheckEachLineWord;
 var
   j: integer;
 begin
@@ -207,7 +207,7 @@ begin
       if Assigned(fOwner) then
         fOwner.AddError(fTheWord + nextFirstWord + cWordSeparator + fTheWord + cWordSeparator + nextFirstWord,
                         fFilename, fLineNum, fUnTrimmedLine, fSuggestions.CommaText, fAltSuggestions.CommaText);
-    end else if (not okWithNextWord) then
+    end else if not okWithNextWord then
       fIgnoreNextFirstWord := true;
   end else
     CheckCamelCaseWords(fTheWord);
@@ -238,7 +238,7 @@ begin
               if NeedsSpellCheck(fTheStr) then begin
                 BuildLineWords(fTheStr);
                 CleanLineWords;
-                CheckEachWordInString;
+                CheckEachLineWord;
               end;
             end else
               Break;
@@ -348,7 +348,7 @@ begin
     else if fTextBeforeQuote.Contains('<html>') then
       fMultiCommentSym := '</html>'
     else if IsSQL(ALine) or
-            (Assigned(fOwner) and fOwner.InIgnoreCodeFile(fTextBeforeQuote)) then begin
+            (Assigned(fOwner) and fOwner.ExistsInIgnoreCodeFile(fTextBeforeQuote)) then begin
       if fIsDFM then
         fMultiCommentSym := cSkipLineEndStringDFM
       else
