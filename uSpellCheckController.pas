@@ -42,11 +42,11 @@ uses
       Writeln('The program exit code will be non 0 when there are errors.');
       Writeln('');
       Writeln('Startup parameters (optional):');
-      Writeln(Format('1) Language file (%s)', [cDefaultlanguageName]));
-      Writeln(Format('2) Source path or full filename (%s)', [cDefaultSourcePath]));
+      Writeln(Format('1) Dictionary file (%s)', [cDefaultlanguageName]));
+      Writeln(Format('2) Source directory or file path (%s)', [cDefaultSourcePath]));
       Writeln(Format('3) Path for the ignore files (%s)', [spellCheck.IngoreFilePath]));
       Writeln(Format('4) File extension mask (%s)', [cDefaultExtFilter]));
-      Writeln('5) Scan folders recursively (1)');
+      Writeln('5) Scan sub directories (1)');
       Writeln('6) Add to ignore prompt (1)');
       Writeln('7) Provide suggestions (1)');
       Writeln('');
