@@ -728,7 +728,6 @@ begin
     else
       raise Exception.Create('Please provide a TSpellCheckLinter for TSpellCheckThread');
     fSpellCheckFile := TSpellCheckFile.Create(AOwner);
-    
   finally
     CoUnInitialize;
   end;
