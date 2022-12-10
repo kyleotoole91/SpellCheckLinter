@@ -12,7 +12,7 @@ const
   cProvideSuggestions=7; //toggle suggestions (these take time to generate)
 
 type
-  TErrorCodes = (ecExitCodeOk=0, ecExitCodeErrors=1, ecExitCodeException=2);
+  TErrorCodes = (ecOk=0, ecErrors=1, ecException=2);
 
   function RunSpellCheck: integer;
   procedure ShowManual;
@@ -30,7 +30,7 @@ uses
     spellCheck: TSpellCheckLinter;
   begin
     input := '';
-    result := NativeInt(ecExitCodeOk);
+    result := NativeInt(ecOk);
     spellCheck := TSpellCheckLinter.Create;
     try
       if (Trim(ParamStr(cLanguageFilename)) = 'help') or
@@ -59,7 +59,7 @@ uses
         for i := 0 to spellCheck.Errors.Count-1 do
           Writeln(spellCheck.Errors.Strings[i]);
         if spellCheck.Errors.Count > 0 then begin
-          result := NativeInt(ecExitCodeErrors);
+          result := NativeInt(ecErrors);
           if ParamStr(cHalt) <> '0' then begin
             if (spellCheck.ErrorsWords.Count > 0) then begin
               Writeln('Would you like to add these words to '+cIgnoreWordsName+'? Y/N or R to run again');
