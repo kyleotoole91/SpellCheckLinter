@@ -51,11 +51,9 @@ uses
         Writeln('Spell checking files, please wait...');
         spellCheck.Run;
         if SecondsBetween(spellCheck.StartTime, spellCheck.EndTime) < 10 then
-          Writeln(Format('Checked %d files in %d milliseconds', [spellCheck.FileCount,
-                                                      MilliSecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]))
+          Writeln(Format('Checked %d files in %d milliseconds', [spellCheck.FileCount, MilliSecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]))
         else
-          Writeln(Format('Checked %d files in %d seconds', [spellCheck.FileCount,
-                                                     SecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]));
+          Writeln(Format('Checked %d files in %d seconds', [spellCheck.FileCount, SecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]));
         Writeln(Format('Error count %d', [spellCheck.ErrorsWords.Count]));
         Writeln(' ');
         for i := 0 to spellCheck.Errors.Count-1 do
