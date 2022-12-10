@@ -720,12 +720,15 @@ end;
 constructor TSpellCheckThread.Create(const AOwner: TSpellCheckLinter);
 begin
   inherited Create(true);
+  FreeOnTerminate := true;
   CoInitialize(nil);
   try
     if Assigned(AOwner) then
-      AOwner.IncrementThreadCount;
+      AOwner.IncrementThreadCount
+    else
+      raise Exception.Create('Please provide a TSpellCheckLinter for TSpellCheckThread');
     fSpellCheckFile := TSpellCheckFile.Create(AOwner);
-    FreeOnTerminate := true;
+    
   finally
     CoUnInitialize;
   end;
@@ -741,7 +744,12 @@ procedure TSpellCheckThread.Execute;
 begin
   inherited;
   try
-    fSpellCheckFile.Run;
+    try
+      fSpellCheckFile.Run;
+    except
+      on e: exception do
+        fSpellCheckFile.Owner.AddError('Exception raised during TSpellCheckThread.Execute: '+e.ClassName+' '+e.Message, fSpellCheckFile.Filename);
+    end;
   finally
     if Assigned(fSpellCheckFile.Owner) then
       fSpellCheckFile.Owner.DecrementThreadCount;
