@@ -38,7 +38,8 @@ uses
       Writeln('Can be launched from the command line where optional parameters can be set. ');
       Writeln('Only text within single quotes will be checked against the dictionary file.');
       Writeln('PascalCase and camelCase text will get split into separate words.');
-      Writeln(Format('Only words %d characters in length or greater will be checked.', [cMinCheckLength]));
+      Writeln(Format('Only words %d characters in length or greater will be checked. %d for the first camelCase/PascalCase word.', [cMinCheckLength, cMinCheckLength+1]));
+      Writeln('The program exit code will be non 0 when there are errors.');
       Writeln('');
       Writeln('Startup parameters (optional):');
       Writeln(Format('1) Language file (%s)', [cDefaultlanguageName]));
@@ -56,12 +57,12 @@ uses
       Writeln(Format('The %s file will ignore lines if the text in the file is equal to the line.', [cIgnoreLinesName]));
       Writeln(Format('The %s file will ignore lines if the text in the file is contained in the the line..', [cIgnoreContainsName]));
       Writeln('');
-      Writeln('Ignore file paths:');
-      Writeln(spellCheck.IngoreFilePath+cIgnoreWordsName);
-      Writeln(spellCheck.IngoreFilePath+cIgnoreCodeName);
-      Writeln(spellCheck.IngoreFilePath+cIgnoreFilesName);
-      Writeln(spellCheck.IngoreFilePath+cIgnorePathsName);
-      Writeln(spellCheck.IngoreFilePath+cIgnoreLinesName);
+      Writeln('Ignore file names:');
+      Writeln(cIgnoreWordsName);
+      Writeln(cIgnoreCodeName);
+      Writeln(cIgnoreFilesName);
+      Writeln(cIgnorePathsName);
+      Writeln(cIgnoreLinesName);
     end;
     procedure WriteErrors;
     var
