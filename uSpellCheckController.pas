@@ -15,6 +15,8 @@ type
   TErrorCodes = (ecExitCodeOk=0, ecExitCodeErrors=1, ecExitCodeException=2);
 
   function RunSpellCheck: integer;
+  procedure ShowManual;
+  procedure NoErrorsMsg;
 
 implementation
 
@@ -23,55 +25,9 @@ uses
 
   function RunSpellCheck: integer;
   var
+    i: integer;
     input: string;
     spellCheck: TSpellCheckLinter;
-    procedure NoErrorsMsg;
-    begin
-      if ParamStr(cHalt) <> '0' then begin
-        Writeln('Press Enter to close or R to restart');
-        ReadLn(input);
-      end;
-    end;
-    procedure ShowManual;
-    begin
-      Writeln('Welcome to SpellCheckLinter, specifically designed for Delphi (.pas/.dfm) files. ');
-      Writeln('Can be launched from explorer, it will halt at the end by default to show the results. ');
-      Writeln('Can be launched from the command line where optional parameters can be set. ');
-      Writeln('Only text within single quotes will be checked against the dictionary file.');
-      Writeln('PascalCase and camelCase text will get split into separate words.');
-      Writeln(Format('Only words %d characters in length or greater will be checked. %d for the first camelCase/PascalCase word.', [cMinCheckLength, cMinCheckLength+1]));
-      Writeln('The program exit code will be non 0 when there are errors.');
-      Writeln('');
-      Writeln('Startup parameters (optional):');
-      Writeln(Format('1) Dictionary file (%s)', [cDefaultlanguageName]));
-      Writeln(Format('2) Source directory or file path (%s)', [cDefaultSourcePath]));
-      Writeln(Format('3) Path for the ignore files (%s)', [spellCheck.IngoreFilePath]));
-      Writeln(Format('4) File extension mask (%s)', [cDefaultExtFilter]));
-      Writeln('5) Scan sub directories (1)');
-      Writeln('6) Add to ignore prompt (1)');
-      Writeln('7) Provide suggestions (1)');
-      Writeln('');
-      Writeln('Ignore files:');
-      Writeln(Format('The %s file will ignore the word if the word is in this file. An extension of %s.', [cIgnoreWordsName, cDefaultlanguageName]));
-      Writeln(Format('The %s file will ignore the line if the text before the quote is in this file.', [cIgnoreCodeName]));
-      Writeln(Format('The %s file will ignore files if the text in the file is contained in the path.', [cIgnorePathsName]));
-      Writeln(Format('The %s file will ignore lines if the text in the file is equal to the line.', [cIgnoreLinesName]));
-      Writeln(Format('The %s file will ignore lines if the text in the file is contained in the the line..', [cIgnoreContainsName]));
-      Writeln('');
-      Writeln('Ignore file names:');
-      Writeln(cIgnoreWordsName);
-      Writeln(cIgnoreCodeName);
-      Writeln(cIgnoreFilesName);
-      Writeln(cIgnorePathsName);
-      Writeln(cIgnoreLinesName);
-    end;
-    procedure WriteErrors;
-    var
-      a: integer;
-    begin
-      for a := 0 to spellCheck.Errors.Count-1 do
-        Writeln(spellCheck.Errors.Strings[a]);
-    end;
   begin
     input := '';
     result := NativeInt(ecExitCodeOk);
@@ -102,7 +58,8 @@ uses
                                                      SecondsBetween(spellCheck.StartTime, spellCheck.EndTime)]));
         Writeln(Format('Error count %d', [spellCheck.ErrorsWords.Count]));
         Writeln(' ');
-        WriteErrors;
+        for i := 0 to spellCheck.Errors.Count-1 do
+          Writeln(spellCheck.Errors.Strings[i]);
         if spellCheck.Errors.Count > 0 then begin
           result := NativeInt(ecExitCodeErrors);
           if ParamStr(cHalt) <> '0' then begin
@@ -125,4 +82,47 @@ uses
         result := RunSpellCheck;
     end;
   end;
+
+  procedure NoErrorsMsg;
+  begin
+    if ParamStr(cHalt) <> '0' then begin
+      Writeln('Press Enter to close or R to restart');
+      ReadLn(input);
+    end;
+  end;
+
+  procedure ShowManual;
+  begin
+    Writeln('Welcome to SpellCheckLinter, specifically designed for Delphi (.pas/.dfm) files. ');
+    Writeln('Can be launched from explorer, it will halt at the end by default to show the results. ');
+    Writeln('Can be launched from the command line where optional parameters can be set. ');
+    Writeln('Only text within single quotes will be checked against the dictionary file.');
+    Writeln('PascalCase and camelCase text will get split into separate words.');
+    Writeln(Format('Only words %d characters in length or greater will be checked. %d for the first camelCase/PascalCase word.', [cMinCheckLength, cMinCheckLength+1]));
+    Writeln('The program exit code will be non 0 when there are errors.');
+    Writeln('');
+    Writeln('Startup parameters (optional):');
+    Writeln(Format('1) Dictionary file (%s)', [cDefaultlanguageName]));
+    Writeln(Format('2) Source directory or file path (%s)', [cDefaultSourcePath]));
+    Writeln(Format('3) Path for the ignore files (%s)', [cDefaultSourcePath]));
+    Writeln(Format('4) File extension mask (%s)', [cDefaultExtFilter]));
+    Writeln('5) Scan sub directories (1)');
+    Writeln('6) Add to ignore prompt (1)');
+    Writeln('7) Provide suggestions (1)');
+    Writeln('');
+    Writeln('Ignore files:');
+    Writeln(Format('The %s file will ignore the word if the word is in this file. An extension of %s.', [cIgnoreWordsName, cDefaultlanguageName]));
+    Writeln(Format('The %s file will ignore the line if the text before the quote is in this file.', [cIgnoreCodeName]));
+    Writeln(Format('The %s file will ignore files if the text in the file is contained in the path.', [cIgnorePathsName]));
+    Writeln(Format('The %s file will ignore lines if the text in the file is equal to the line.', [cIgnoreLinesName]));
+    Writeln(Format('The %s file will ignore lines if the text in the file is contained in the the line..', [cIgnoreContainsName]));
+    Writeln('');
+    Writeln('Ignore file names:');
+    Writeln(cIgnoreWordsName);
+    Writeln(cIgnoreCodeName);
+    Writeln(cIgnoreFilesName);
+    Writeln(cIgnorePathsName);
+    Writeln(cIgnoreLinesName);
+  end;
+
 end.
