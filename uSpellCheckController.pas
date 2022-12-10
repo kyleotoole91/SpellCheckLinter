@@ -5,10 +5,10 @@ interface
 const
   cLanguageFilename=1; //.dic file
   cSourceFilename=2; //source path or filename
-  cExtFilter=3; //eg *.pas
-  cResursive=4; //when 0, resusive scan is disabled
-  cHalt=5; //when 0 the program will stop when finished
-  cIgnoreFilepath=6; //defaulted to working dir
+  cIgnoreFilepath=3; //defaulted to working dir
+  cExtFilter=4; //eg *.pas
+  cResursive=5; //when 0, resusive scan is disabled
+  cHalt=6; //when 0 the program will stop when finished
   cProvideSuggestions=7; //toggle suggestions (these take time to generate)
   cExitCodeOk=0;
   cExitCodeErrors=1;
@@ -44,10 +44,10 @@ uses
       Writeln('Startup parameters (optional):');
       Writeln(Format('1) Language file (%s)', [cDefaultlanguageName]));
       Writeln(Format('2) Source path or full filename (%s)', [cDefaultSourcePath]));
-      Writeln(Format('3) File extension mask (%s)', [cDefaultExtFilter]));
-      Writeln('4) Scan folders recursively (1)');
-      Writeln('5) Add to ignore prompt (1)');
-      Writeln(Format('6) Path for the ignore files (%s)', [spellCheck.IngoreFilePath]));
+      Writeln(Format('3) Path for the ignore files (%s)', [spellCheck.IngoreFilePath]));
+      Writeln(Format('4) File extension mask (%s)', [cDefaultExtFilter]));
+      Writeln('5) Scan folders recursively (1)');
+      Writeln('6) Add to ignore prompt (1)');
       Writeln('7) Provide suggestions (1)');
       Writeln('');
       Writeln('Ignore files:');
