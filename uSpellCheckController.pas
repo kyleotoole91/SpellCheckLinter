@@ -10,9 +10,10 @@ const
   cResursive=5; //when 0, resusive scan is disabled
   cHalt=6; //when 0 the program will stop when finished
   cProvideSuggestions=7; //toggle suggestions (these take time to generate)
-  cExitCodeOk=0;
-  cExitCodeErrors=1;
-  cExitCodeException=2;
+
+type
+  TErrorCodes = (ecExitCodeOk=0, ecExitCodeErrors=1, ecExitCodeException=2);
+
   function RunSpellCheck: integer;
 
 implementation
@@ -73,7 +74,7 @@ uses
     end;
   begin
     input := '';
-    result := cExitCodeOk;
+    result := NativeInt(ecExitCodeOk);
     spellCheck := TSpellCheckLinter.Create;
     try
       if (Trim(ParamStr(cLanguageFilename)) = 'help') or
@@ -103,7 +104,7 @@ uses
         Writeln(' ');
         WriteErrors;
         if spellCheck.Errors.Count > 0 then begin
-          result := cExitCodeErrors;
+          result := NativeInt(ecExitCodeErrors);
           if ParamStr(cHalt) <> '0' then begin
             if (spellCheck.ErrorsWords.Count > 0) then begin
               Writeln('Would you like to add these words to '+cIgnoreWordsName+'? Y/N or R to run again');

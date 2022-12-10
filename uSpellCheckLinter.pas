@@ -1,6 +1,5 @@
 unit uSpellCheckLinter; //designed for code files .pas and .dfm. Only words within string literals are spell checked
 
-
 interface
 
 uses
@@ -48,12 +47,12 @@ type
     procedure Run;
     function AddToIgnoreFile: boolean;
     procedure IncWordCheckCount;
-    function InIgnoreCodeFile(const AText: string): boolean;
+    procedure DecrementThreadCount;
+    procedure IncrementThreadCount;
+    function ExistsInIgnoreCodeFile(const AText: string): boolean;
     procedure AddError(const AError: string; const AFilename: string; const ALineNumber: integer; const AUnTrimmedLine: string;
                        const ASuggestions: string=''; const AAltSuggestions: string=''); overload;
     procedure AddError(const AError, AFilename: string); overload;
-    procedure DecrementThreadCount;
-    procedure IncrementThreadCount;
     property LanguageFilename: string read fLanguageFilename write SetLanguageFilename;
     property SourcePath: string read fSourcePath write fSourcePath;
     property QuoteSym: string read fQuoteSym write fQuoteSym;
@@ -84,12 +83,14 @@ uses
 constructor TSpellCheckLinter.Create;
 begin
   inherited;
+  fCSErrorLog := TCriticalSection.Create;
+  fCSThreadCount := TCriticalSection.Create;
+  fWordsDict := TDictionary<string, string>.Create;
   fProvideSuggestions := true;
   fIngoreFilePath := cDefaultSourcePath;
   fIgnorePathContaining := TStringList.Create;
   fIgnoreContainsLines := TStringList.Create;
   fErrorWords := TStringList.Create;
-  fWordsDict := TDictionary<string, string>.Create;
   fLanguageFile := TStringList.Create;
   fErrors := TStringList.Create;
   fIgnoreLines := TStringList.Create;
@@ -98,8 +99,6 @@ begin
   fIgnoreCodeFile := TStringList.Create;
   fQuoteSym := cDefaultQuote;
   fRecursive := true;
-  fCSErrorLog := TCriticalSection.Create;
-  fCSThreadCount := TCriticalSection.Create;
   Clear;
 end;
 
@@ -232,7 +231,7 @@ begin
   end;
 end;
 
-function TSpellCheckLinter.InIgnoreCodeFile(const AText: string): boolean;
+function TSpellCheckLinter.ExistsInIgnoreCodeFile(const AText: string): boolean;
 var
   a: integer;
 begin
