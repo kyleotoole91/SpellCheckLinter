@@ -18,8 +18,9 @@ const
   cSpellCheckOff='//SPELL_CHECK_OFF';
   cSpellCheckOn='//SPELL_CHECK_ON';
   cSkippedLineCountLimit=220; //
-  cDefaultExtFilter='*.pas';
+  cDefaultExtFilter='*.pas|*.dfm';
   cDefaultSourcePath='.\';
+  cDefaultIgnorePath= '.\';
   cDefaultQuote='''';
   cIgnoreContainsName='IgnoreContains.dic';
   cIgnoreCodeName='IgnoreCode.dic';

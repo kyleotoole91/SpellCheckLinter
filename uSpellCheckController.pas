@@ -43,7 +43,8 @@ uses
           spellCheck.SourcePath := ParamStr(cSourceFilename);
         if Trim(ParamStr(cExtFilter)) <> '' then
           spellCheck.FileExtFilter := ParamStr(cExtFilter);
-        spellCheck.Recursive := ParamStr(cResursive) = '1';
+        if Trim(ParamStr(cResursive)) <> '' then
+          spellCheck.Recursive := ParamStr(cResursive) = '1';
         if Trim(ParamStr(cIgnoreFilepath)) <> '' then
           spellCheck.IngoreFilePath := ParamStr(cIgnoreFilepath);
         if Trim(ParamStr(cProvideSuggestions)) <> '' then

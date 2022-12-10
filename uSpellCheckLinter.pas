@@ -33,6 +33,7 @@ type
     fErrorWords: TStringList;
     fIgnoreContainsLines: TStringList;
     fProvideSuggestions: boolean;
+    fFilenameList: TStringList;
     procedure SetIngoreFilePath(const Value: string);
     procedure Clear;
     procedure LoadIgnoreFiles;
@@ -41,6 +42,7 @@ type
     procedure SpellCheckFile(const AFilename: string);
     function IngoredPathContaining(const AFilename: string): boolean;
     procedure WaitForThreads;
+    procedure ScanForFiles;
   public
     constructor Create;
     destructor Destroy; override;
@@ -71,12 +73,13 @@ type
     property IngoreFilePath: string read fIngoreFilePath write SetIngoreFilePath;
     property ProvideSuggestions: boolean read fProvideSuggestions write fProvideSuggestions;
     property WordsDict: TDictionary<string, string> read fWordsDict;
+    property FilenameList: TStringList read fFilenameList;
   end;
 
 implementation
 
 uses
-  uSpellCheckFile;
+  StrUtils, Masks, uSpellCheckFile;
 
 { TSpellCheckLinter }
 
@@ -87,7 +90,7 @@ begin
   fCSThreadCount := TCriticalSection.Create;
   fWordsDict := TDictionary<string, string>.Create;
   fProvideSuggestions := true;
-  fIngoreFilePath := cDefaultSourcePath;
+  fIngoreFilePath := cDefaultIgnorePath;
   fIgnorePathContaining := TStringList.Create;
   fIgnoreContainsLines := TStringList.Create;
   fErrorWords := TStringList.Create;
@@ -97,6 +100,7 @@ begin
   fIgnoreWords := TStringList.Create;
   fIgnoreFiles := TStringList.Create;
   fIgnoreCodeFile := TStringList.Create;
+  fFilenameList := TStringList.Create;
   fQuoteSym := cDefaultQuote;
   fRecursive := true;
   Clear;
@@ -105,6 +109,7 @@ end;
 destructor TSpellCheckLinter.Destroy;
 begin
   try
+    fFilenameList.DisposeOf;
     fIgnoreCodeFile.DisposeOf;
     fIgnorePathContaining.DisposeOf;
     fIgnoreContainsLines.DisposeOf;
@@ -141,7 +146,7 @@ end;
 
 procedure TSpellCheckLinter.Run;
 var
-  filenames: TStringDynArray;
+  i: integer;
   filename: string;
 begin
   fStartTime := Now;
@@ -154,15 +159,10 @@ begin
       LoadLanguageDictionary;
       if FileExists(fSourcePath) then
         SpellCheckFile(fSourcePath)
-      else begin
-        if Trim(fSourcePath) = '' then
-          fSourcePath := '.\';
-        if fRecursive then
-          filenames := TDirectory.GetFiles(fSourcePath, fFileExtFilter, TSearchOption.soAllDirectories)
-        else
-          filenames := TDirectory.GetFiles(fSourcePath, fFileExtFilter, TSearchOption.soTopDirectoryOnly);
-      end;
-      for filename in filenames do begin
+      else if Trim(fSourcePath) <> '' then
+        ScanForFiles;
+      for i:=0 to fFilenameList.Count-1 do begin
+        filename := fFilenameList.Strings[i];
         if (fIgnoreFiles.IndexOf(ExtractFileName(filename)) = -1) and
            (not IngoredPathContaining(filename)) then begin
           Inc(fFileCount);
@@ -177,6 +177,41 @@ begin
   finally
     fEndTime := Now;
   end;
+end;
+
+procedure TSpellCheckLinter.ScanForFiles;
+var
+  multiExts: boolean;
+  filename: string;
+  filenameArr,
+  maskArr: TStringDynArray;
+  filterPredicate: TDirectory.TFilterPredicate;
+  searchOption: TSearchOption;
+begin
+  filterPredicate := function(const APath: string; const ASearchRec: TSearchRec): boolean
+                     var
+                       mask: string;
+                     begin
+                       result := false;
+                       for mask in maskArr do begin
+                         result := MatchesMask(ASearchRec.Name, mask);
+                         if result then
+                           Break;
+                       end;
+                     end;
+  maskArr := SplitString(fFileExtFilter.Replace('"', ''), '|');
+  multiExts := fFileExtFilter.Contains( '|');
+  if fRecursive then
+    searchOption := TSearchOption.soAllDirectories
+  else
+    searchOption := TSearchOption.soTopDirectoryOnly;
+  if multiExts then
+    filenameArr := TDirectory.GetFiles(fSourcePath, searchOption, filterPredicate)
+  else
+    filenameArr := TDirectory.GetFiles(fSourcePath, fFileExtFilter, searchOption);
+  fFilenameList.Clear;
+  for filename in filenameArr do
+    fFilenameList.Add(filename);
 end;
 
 procedure TSpellCheckLinter.LoadLanguageDictionary;
