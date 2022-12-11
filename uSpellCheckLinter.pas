@@ -188,6 +188,9 @@ var
   filterPredicate: TDirectory.TFilterPredicate;
   searchOption: TSearchOption;
 begin
+  fFilenameList.Clear;
+  maskArr := SplitString(fFileExtFilter.Replace('"', ''), '|');
+  multiExts := fFileExtFilter.Contains( '|');
   filterPredicate := function(const APath: string; const ASearchRec: TSearchRec): boolean
                      var
                        mask: string;
@@ -199,8 +202,6 @@ begin
                            Break;
                        end;
                      end;
-  maskArr := SplitString(fFileExtFilter.Replace('"', ''), '|');
-  multiExts := fFileExtFilter.Contains( '|');
   if fRecursive then
     searchOption := TSearchOption.soAllDirectories
   else
@@ -209,7 +210,6 @@ begin
     filenameArr := TDirectory.GetFiles(fSourcePath, searchOption, filterPredicate)
   else
     filenameArr := TDirectory.GetFiles(fSourcePath, fFileExtFilter, searchOption);
-  fFilenameList.Clear;
   for filename in filenameArr do
     fFilenameList.Add(filename);
 end;

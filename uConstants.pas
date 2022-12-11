@@ -15,8 +15,8 @@ const
   cWordSeparator='/';
   cSkipLineEndString=';';
   cSkipLineEndStringDFM=';';
-  cSpellCheckOff='//SPELL_CHECK_OFF';
   cSpellCheckOn='//SPELL_CHECK_ON';
+  cSpellCheckOff='//SPELL_CHECK_OFF';
   cSkippedLineCountLimit=220; //
   cDefaultExtFilter='*.pas|*.dfm';
   cDefaultSourcePath='.\';
